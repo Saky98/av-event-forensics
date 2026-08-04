@@ -2,7 +2,7 @@
 
 A self-hosted web forensic tool for analyzing MCAP recordings from autonomous driving datasets — fully local, nothing is uploaded to a server.
 
-> ⚠️ **Work in progress** — currently in the early development phase (see [HANDOFF.md](./HANDOFF.md) for the roadmap).
+> ⚠️ **Work in progress** — Phase 1 (project skeleton, Redux store, UI layout) is complete. Next up: Phase 2 — file manager & MCAP loading. See [HANDOFF.md](./HANDOFF.md) for the full roadmap.
 
 ## What it does
 
