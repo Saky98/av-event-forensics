@@ -1,5 +1,6 @@
 {
   "name": "av-event-forensics",
+  "description": "A self-hosted forensic visualization tool for reconstructing autonomous vehicle events from MCAP sensor recordings (cameras, LiDAR, telemetry).",
   "private": true,
   "version": "0.0.0",
   "type": "module",
