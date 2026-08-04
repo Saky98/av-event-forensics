@@ -1,6 +1,6 @@
-# DeepAccident Forensic
+# Design of a Custom Forensic Visualization Tool for Temporal-Spatial Reconstruction of Autonomous Vehicle Events
 
-A self-hosted web forensic tool for analyzing MCAP recordings from the [DeepAccident](https://deepaccident.github.io/) autonomous driving dataset.
+A self-hosted web forensic tool for analyzing MCAP recordings from autonomous driving datasets — fully local, nothing is uploaded to a server.
 
 > ⚠️ **Work in progress** — currently in the early development phase (see [HANDOFF.md](./HANDOFF.md) for the roadmap).
 
