@@ -2,7 +2,7 @@
 
 A self-hosted web forensic tool for analyzing MCAP recordings from autonomous driving datasets — fully local, nothing is uploaded to a server.
 
-> ⚠️ **Work in progress** — Phase 1 (project skeleton, Redux store, UI layout) is complete. Next up: Phase 2 — file manager & MCAP loading. See [HANDOFF.md](./HANDOFF.md) for the full roadmap.
+> ⚠️ **Work in progress** — Phases 1–3 are complete (scaffold & architecture, file manager & MCAP loading, multi-camera player). Next up: **Phase 4 — LiDAR 3D Visualization**. See [HANDOFF.md](./HANDOFF.md) for the detailed roadmap and session log.
 
 ## What it does
 
@@ -25,6 +25,21 @@ Fully local, browser-based analysis of MCAP files — nothing is uploaded to a s
 | MCAP parsing     | `@mcap/browser`, `@mcap/core`, `@mcap/support`    |
 | 3D rendering     | Three.js                                          |
 | Charts           | uPlot                                             |
+
+## Project phases
+
+Each phase is developed on its own git branch and merged into `main` via a **merge request named after the phase** (e.g. `Phase 4 — LiDAR 3D Visualization`). At the end of every phase we create a git **tag**, so each stage stays recoverable for later changes or polish.
+
+| # | Phase name | Branch | Status |
+|---|------------|--------|--------|
+| 1 | Scaffold & Architecture | `phase/1-scaffold-architecture` | ✅ Done |
+| 2 | File Manager & MCAP Loading | `phase/2-file-manager-mcap` | ✅ Done |
+| 3 | Multi-Camera Player | `phase/3-multi-camera-player` | ✅ Done |
+| 4 | LiDAR 3D Visualization | `phase/4-lidar-3d` | 🚧 Next |
+| 5 | Telemetry Charts | `phase/5-telemetry-charts` | ⏳ Planned |
+| 6 | Forensic Validation & Hashing | `phase/6-forensic-validation` | ⏳ Planned |
+
+> **Note:** Phases 1–3 were built directly on `main` and snapshotted together in a single commit (tag `phases-1-3-baseline`). From Phase 4 onward, work happens on a dedicated phase branch.
 
 ## Getting started
 

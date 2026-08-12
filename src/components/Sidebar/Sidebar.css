@@ -1,0 +1,170 @@
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  flex: 1 1 100%;
+  font-size: 15px;
+  color: #fff;
+}
+
+.sidebar-header button {
+  flex: 0 0 auto;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.load-error {
+  background: #5a1e1e;
+  border: 1px solid #8a3a3a;
+  color: #ffb4b4;
+  padding: 8px 10px;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.file-card {
+  background: #383838;
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.file-meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.file-meta dt {
+  color: #9a9a9a;
+}
+
+.file-meta dd {
+  margin: 0;
+  color: #ddd;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+h4 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #aaa;
+}
+
+.empty-hint {
+  color: #888;
+  margin: 0;
+}
+
+.topic-groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.topic-group {
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+  background: #333;
+  overflow: hidden;
+}
+
+.topic-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #3d3d3d;
+  border-bottom: 1px solid #4a4a4a;
+}
+
+.schema-name {
+  font-weight: 600;
+  color: #e8e8e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-count {
+  background: #555;
+  color: #ddd;
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.topic-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.topic-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px;
+  cursor: default;
+}
+
+.topic-item:hover {
+  background: #3d3d3d;
+}
+
+.topic-name {
+  color: #7cb7ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.topic-msg-count {
+  color: #888;
+  font-size: 11px;
+  flex: 0 0 auto;
+}

@@ -1,0 +1,107 @@
+.camera-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.camera-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.camera-grid-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.layout-switcher {
+  display: flex;
+  gap: 4px;
+}
+
+.layout-switcher button {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.layout-switcher button.active {
+  background: #4f7fd0;
+  border-color: #7aa7f0;
+  color: #fff;
+}
+
+.camera-grid-empty {
+  color: #888;
+  margin: 0;
+}
+
+.camera-grid-panels {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.camera-grid-panels.grid-1 {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.camera-grid-panels.grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.camera-grid-panels.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.camera-panel {
+  position: relative;
+  background: #111;
+  border: 1px solid #3d3d3d;
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.camera-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.camera-panel-overlay {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  font-size: 11px;
+}
+
+.camera-panel-name {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.camera-panel-time {
+  background: rgba(0, 0, 0, 0.55);
+  color: #9fd0ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

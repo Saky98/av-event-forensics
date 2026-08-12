@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local data storage (large datasets, MCAP recordings — never commit)
+storage/
+
 # TypeScript build info (tsc incremental)
 *.tsbuildinfo
 
