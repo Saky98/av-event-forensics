@@ -123,6 +123,13 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 **Phase 3: Multi-channel Video Player (Cameras)** — ✅ done (live browser test passed: 6-camera grid, play, scrub). **Next: Phase 4 — LiDAR 3D Point Cloud** (worker + parser already in place; `/lidar/points`, `/lidar/background_map` 1.77M pts, `/annotations/objects`, `/ego/pose`). Also open: Phase 5 (telemetry) or Phase 3 polish (full-res on click, per-camera toggles).
 *(Update this line as we progress)*
 
+## Git Workflow (from Phase 4 onward)
+
+- Phases 1–3 were built on `main` directly and snapshotted in commit `6d40afd` (tag **`phases-1-3-baseline`**), pushed to GitHub `origin/main`.
+- Each phase from now on gets its own branch `phase/<n>-<short-name>` (names in README table), developed there, merged to `main` via a merge request named after the phase.
+- At the end of each phase, create a tag `phase-<n>-<name>` so every stage stays recoverable.
+- Large data (`storage/`) and build artifacts stay gitignored.
+
 ---
 
 ## Session Log — 05.08.2026 (today's work, all steps done)
