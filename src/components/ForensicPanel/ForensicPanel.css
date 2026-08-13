@@ -223,9 +223,65 @@
   background: rgba(255, 107, 107, 0.12);
 }
 
+.forensic-link-header {
+  color: #6b7a8a;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(139, 154, 171, 0.08);
+}
+
+.forensic-link-header .forensic-link-dot {
+  background: transparent;
+}
+
 .forensic-link-frame {
   color: #6b7a8a;
   text-align: right;
+}
+
+.forensic-flag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  margin-right: 3px;
+  text-transform: uppercase;
+}
+
+.forensic-flag.col {
+  color: #ff8a8a;
+  background: rgba(255, 107, 107, 0.14);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.forensic-flag.brk {
+  color: #ffc46b;
+  background: rgba(255, 196, 107, 0.12);
+  border: 1px solid rgba(255, 196, 107, 0.3);
+}
+
+.forensic-verify-msg {
+  margin: 6px 0 8px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid;
+}
+
+.forensic-verify-msg.ok {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.forensic-verify-msg.bad {
+  color: #ff8a8a;
+  background: rgba(255, 107, 107, 0.08);
+  border-color: rgba(255, 107, 107, 0.25);
 }
 
 .forensic-link-t {

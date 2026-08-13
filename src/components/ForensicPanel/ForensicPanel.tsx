@@ -21,31 +21,29 @@ import './ForensicPanel.css';
  *     optional expected-hash comparison (green/red).
  *  2. Provenance      — conversion metadata (library, profile, counts) and a
  *     note about MCAP metadata/provenance records.
- *  3. Hash chain      — per-frame chain of custody (SHA-256 linked ledger):
- *     verify integrity, simulate tampering of one frame and watch the chain
- *     break from that point on.
+ *  3. Hash chain      — per-frame chain of custody (SHA-256 linked ledger).
+ *     The "authentic" chain is recomputed from the source data; "Simulate
+ *     tamper" alters a copy of one frame's record and recomputes the chain,
+ *     so the displayed chain diverges from the authentic one from that frame
+ *     on. "Verify" re-checks the displayed chain against the source data and
+ *     always reports the result.
  */
 
 const ForensicPanel: React.FC = () => {
   const dispatch = useDispatch();
-  const {
-    fileInfo,
-    fileHash,
-    expectedHash,
-    telemetry,
-    events,
-    currentFile,
-  } = useSelector((state: RootState) => state.app);
+  const { fileInfo, fileHash, expectedHash, telemetry, events, currentFile } = useSelector(
+    (state: RootState) => state.app,
+  );
 
-  const [originalChain, setOriginalChain] = useState<ChainLink[] | null>(null);
-  const [currentChain, setCurrentChain] = useState<ChainLink[] | null>(null);
+  const [authenticChain, setAuthenticChain] = useState<ChainLink[] | null>(null);
+  const [displayedChain, setDisplayedChain] = useState<ChainLink[] | null>(null);
   const [tamperedFrame, setTamperedFrame] = useState<number | null>(null);
   const [chainCheck, setChainCheck] = useState<ChainCheck | null>(null);
+  /** Result of the last Verify / tamper action (always visible feedback). */
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Recompute the chain when the source data changes. (State is only touched
-  // in async callbacks; when there is no telemetry the chain simply stays
-  // empty until data arrives — the panel unmounts on file close anyway.)
+  // Authentic chain: recomputed from the source data whenever it changes.
   useEffect(() => {
     if (!telemetry) {
       return;
@@ -59,50 +57,57 @@ const ForensicPanel: React.FC = () => {
       if (cancelled) {
         return;
       }
-      setOriginalChain(chain);
-      setCurrentChain(chain);
+      setAuthenticChain(chain);
+      setDisplayedChain(chain);
       setTamperedFrame(null);
       setChainCheck({ firstDivergence: -1, intact: true });
+      setVerifyMsg(`Authentic chain built from source data: ${chain.length} links.`);
     });
     return () => {
       cancelled = true;
     };
   }, [telemetry, events]);
 
+  // Verify: compare the DISPLAYED chain against the authentic one (recomputed
+  // from the source data) and always report the outcome.
   const verifyChain = useCallback(async () => {
-    if (!originalChain) {
+    if (!authenticChain || !displayedChain) {
       return;
     }
-    if (tamperedFrame === null) {
-      setChainCheck({ firstDivergence: -1, intact: true });
-      return;
-    }
-    // Recomputed chain is already `currentChain`; compare to original.
-    if (currentChain) {
-      setChainCheck(checkChain(originalChain, currentChain));
-    }
-  }, [originalChain, currentChain, tamperedFrame]);
+    const result = checkChain(authenticChain, displayedChain);
+    setChainCheck(result);
+    setVerifyMsg(
+      result.intact
+        ? `Verified against source data: all ${authenticChain.length} links match the authentic chain.`
+        : `Verified against source data: displayed chain diverges at link ${result.firstDivergence} ` +
+            `— ${authenticChain.length - result.firstDivergence} links no longer match. The data was modified.`,
+    );
+  }, [authenticChain, displayedChain]);
 
   const simulateTamper = useCallback(async () => {
-    if (!originalChain) {
+    if (!authenticChain) {
       return;
     }
-    const frame = Math.floor(originalChain.length / 2);
-    const records = originalChain.map((link) => ({ ...link.record }));
-    // Alter one value — e.g. bump velocity by 30% (a "modified" record).
+    const frame = Math.floor(authenticChain.length / 2);
+    // Alter a copy of one record (velocity ×1.3) and recompute the chain.
+    const records = authenticChain.map((link) => ({ ...link.record }));
     const rec = records[frame];
     rec.velocity = Number.isFinite(rec.velocity) ? rec.velocity * 1.3 : 17.0;
     const tampered = await computeChain(records);
-    setCurrentChain(tampered);
+    setDisplayedChain(tampered);
     setTamperedFrame(frame);
     setChainCheck({ firstDivergence: frame, intact: false });
-  }, [originalChain]);
+    setVerifyMsg(
+      `Tampered frame ${frame} (velocity ×1.3): links ${frame}..${authenticChain.length - 1} no longer match the source chain.`,
+    );
+  }, [authenticChain]);
 
   const resetChain = useCallback(() => {
-    setCurrentChain(originalChain);
+    setDisplayedChain(authenticChain);
     setTamperedFrame(null);
-    setChainCheck(originalChain ? { firstDivergence: -1, intact: true } : null);
-  }, [originalChain]);
+    setChainCheck(authenticChain ? { firstDivergence: -1, intact: true } : null);
+    setVerifyMsg(null);
+  }, [authenticChain]);
 
   const copyHash = useCallback(async () => {
     if (!fileHash) {
@@ -232,19 +237,15 @@ const ForensicPanel: React.FC = () => {
       <section className="forensic-card">
         <div className="forensic-card-header">
           <span className="forensic-card-title">Frame Hash Chain (chain of custody)</span>
-          <span
-            className={`forensic-badge ${
-              chainCheck ? (chainCheck.intact ? 'ok' : 'bad') : 'neutral'
-            }`}
-          >
+          <span className={`forensic-badge ${chainCheck ? (chainCheck.intact ? 'ok' : 'bad') : 'neutral'}`}>
             {chainCheck
               ? chainCheck.intact
-                ? `✓ ${originalChain?.length ?? 0} links intact`
+                ? `✓ ${authenticChain?.length ?? 0} links intact`
                 : `✗ broke at link ${chainCheck.firstDivergence}`
               : '—'}
           </span>
         </div>
-        {!originalChain || originalChain.length === 0 ? (
+        {!authenticChain || authenticChain.length === 0 ? (
           <p className="forensic-muted">
             No telemetry available to build the chain. Load a file with /ego/velocity,
             /ego/acceleration or /ego/pose.
@@ -252,21 +253,35 @@ const ForensicPanel: React.FC = () => {
         ) : (
           <>
             <div className="forensic-toolbar">
-              <button className="forensic-btn" onClick={verifyChain} disabled={!currentChain}>
+              <button className="forensic-btn" onClick={verifyChain} disabled={!displayedChain}>
                 Verify chain
               </button>
               <button className="forensic-btn" onClick={simulateTamper} disabled={tamperedFrame !== null}>
-                Simulate tamper (frame {tamperedFrame ?? Math.floor(originalChain.length / 2)})
+                Simulate tamper (frame {tamperedFrame ?? Math.floor(authenticChain.length / 2)})
               </button>
               <button className="forensic-btn" onClick={resetChain} disabled={tamperedFrame === null}>
                 Reset
               </button>
-              <span className="forensic-hint">
-                Each link = SHA-256(prevHash | frameRecord). Any change breaks every following link.
-              </span>
             </div>
+            {verifyMsg && (
+              <p className={`forensic-verify-msg ${chainCheck?.intact ? 'ok' : 'bad'}`}>{verifyMsg}</p>
+            )}
+            <p className="forensic-hint">
+              Each link = SHA-256(prevHash | frame record). Any change to a record breaks every
+              following link. <span className="forensic-flag col">col</span> = collision detected ·{' '}
+              <span className="forensic-flag brk">brk</span> = sudden braking event
+            </p>
             <div className="forensic-chain">
-              {currentChain?.map((link) => {
+              <div className="forensic-link forensic-link-header">
+                <span className="forensic-link-frame">#</span>
+                <span className="forensic-link-t">time</span>
+                <span className="forensic-link-v">velocity m/s</span>
+                <span className="forensic-link-a">accel m/s²</span>
+                <span className="forensic-link-flags">flags</span>
+                <span className="forensic-link-hash">hash</span>
+                <span className="forensic-link-dot" />
+              </div>
+              {displayedChain?.map((link) => {
                 const isTampered = tamperedFrame !== null && link.index >= tamperedFrame;
                 const r = link.record;
                 return (
@@ -274,27 +289,35 @@ const ForensicPanel: React.FC = () => {
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
                     <span className="forensic-link-v">
-                      v {Number.isFinite(r.velocity) ? r.velocity.toFixed(1) : '—'}
+                      {Number.isFinite(r.velocity) ? r.velocity.toFixed(1) : '—'}
                     </span>
                     <span className="forensic-link-a">
-                      a {Number.isFinite(r.acceleration) ? r.acceleration.toFixed(1) : '—'}
+                      {Number.isFinite(r.acceleration) ? r.acceleration.toFixed(1) : '—'}
                     </span>
                     <span className="forensic-link-flags">
-                      {r.collision ? '💥' : ''}
-                      {r.braking ? '🛑' : ''}
+                      {r.collision && (
+                        <span className="forensic-flag col" title="collision detected">col</span>
+                      )}
+                      {r.braking && (
+                        <span className="forensic-flag brk" title="sudden braking event">brk</span>
+                      )}
                     </span>
                     <code className="forensic-link-hash" title={link.hash}>
                       {shortHash(link.hash)}…
                     </code>
                     <span
                       className={`forensic-link-dot ${
-                        tamperedFrame !== null && link.index < tamperedFrame ? 'ok' : isTampered ? 'bad' : ''
+                        tamperedFrame !== null && link.index < tamperedFrame
+                          ? 'ok'
+                          : isTampered
+                            ? 'bad'
+                            : ''
                       }`}
                       title={
                         tamperedFrame !== null && link.index < tamperedFrame
                           ? 'intact (before tamper point)'
                           : isTampered
-                            ? 'broken — hash diverges from original'
+                            ? 'broken — hash diverges from authentic chain'
                             : 'intact'
                       }
                     />
@@ -304,8 +327,8 @@ const ForensicPanel: React.FC = () => {
             </div>
             <p className="forensic-hint">
               {tamperedFrame === null
-                ? 'Simulate an alteration of one frame’s record to see the chain of custody break.'
-                : `Tampered frame ${tamperedFrame}: every link from it onward no longer matches the original chain — this is how a hash chain proves where data was modified.`}
+                ? 'Simulate an alteration of one frame’s record to see the chain of custody break, then press "Verify chain" to confirm the divergence against the source data.'
+                : `Tampered frame ${tamperedFrame}: every link from it onward no longer matches the authentic chain — this is how a hash chain proves where data was modified.`}
             </p>
           </>
         )}

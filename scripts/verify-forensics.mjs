@@ -18,6 +18,17 @@ const chainBadge = () =>
     return chain?.querySelector('.forensic-badge')?.textContent ?? null;
   });
 
+/** Polls the chain badge from Node until it contains `substr`. */
+async function waitForChainBadge(substr, timeout = 10000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const b = await chainBadge();
+    if (b && b.includes(substr)) return b;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`chain badge never contained "${substr}"`);
+}
+
 async function step(name, fn) {
   try {
     await fn();
@@ -66,13 +77,22 @@ try {
   });
 
   await step('chain: 45 links, verify intact, tamper breaks it', async () => {
-    await page.waitForFunction(() => document.querySelectorAll('.forensic-link').length === 45, null, { timeout: 15000 });
-    const links = await page.evaluate(() => document.querySelectorAll('.forensic-link').length);
+    await page.waitForFunction(() => document.querySelectorAll('.forensic-link:not(.forensic-link-header)').length === 45, null, { timeout: 15000 });
+    const links = await page.evaluate(() => document.querySelectorAll('.forensic-link:not(.forensic-link-header)').length);
     console.log(`    links: ${links} | badge: "${await chainBadge()}"`);
     if (!/intact/i.test((await chainBadge()) ?? '')) throw new Error('chain should be intact initially');
 
+    // Verify while intact: shows a confirmation message.
+    await page.click('button:has-text("Verify chain")');
+    await page.waitForFunction(
+      () => document.querySelector('.forensic-verify-msg')?.textContent?.includes('Verified against source data: all'),
+      null,
+      { timeout: 8000 },
+    );
+    console.log(`    verify (intact): "${await page.textContent('.forensic-verify-msg')}"`);
+
     await page.click('button:has-text("Simulate tamper")');
-    await page.waitForFunction(async () => ((await chainBadge()) ?? '').includes('broke'), null, { timeout: 10000 });
+    await waitForChainBadge('broke');
     const badgeAfter = await chainBadge();
     console.log(`    after tamper: "${badgeAfter}"`);
     if (!/broke at link 22/.test(badgeAfter ?? '')) throw new Error(`expected 'broke at link 22', got: ${badgeAfter}`);
@@ -81,8 +101,17 @@ try {
     if (tamperedCount !== 45 - 22) throw new Error(`expected 23 tampered rows, got ${tamperedCount}`);
     console.log(`    tampered rows: ${tamperedCount} (frame 22..44)`);
 
+    // Verify after tamper: reports the divergence against the source data.
+    await page.click('button:has-text("Verify chain")');
+    await page.waitForFunction(
+      () => document.querySelector('.forensic-verify-msg')?.textContent?.includes('diverges at link 22'),
+      null,
+      { timeout: 8000 },
+    );
+    console.log(`    verify (tampered): "${await page.textContent('.forensic-verify-msg')}"`);
+
     await page.click('button:has-text("Reset")');
-    await page.waitForFunction(async () => ((await chainBadge()) ?? '').includes('intact'), null, { timeout: 5000 });
+    await waitForChainBadge('intact', 5000);
     console.log('    after reset: intact ✓');
   });
 
