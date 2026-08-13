@@ -5,14 +5,17 @@ import {
   setCameraTopics,
   setCurrentFile,
   setCurrentTimestamp,
+  setEgoPoseTopic,
   setFileInfo,
   setFrameStepMs,
+  setLidarTopics,
   setLoadError,
   setLoadStatus,
   setPlayerReady,
   setTimeRange,
   setTopics,
   setVisibleCameras,
+  setAnnotationTopics,
 } from '../store/appStore';
 import { useMcapWorker } from './useMcapWorker';
 import { clearMcapSession, loadMcapFile } from '../utils/mcap';
@@ -50,6 +53,25 @@ export function useMcapReader() {
           .map((topic) => topic.topic);
         dispatch(setCameraTopics(cameraTopics));
         dispatch(setVisibleCameras(cameraTopics.slice(0, 6)));
+
+        // Point cloud topics (foxglove.PointCloud): per-frame sweeps vs static maps.
+        const pointCloudTopics = topics
+          .filter((t) => t.schemaName === 'foxglove.PointCloud')
+          .map((t) => t.topic);
+        const mapTopics = pointCloudTopics.filter((t) => /map|background/i.test(t));
+        const sweepTopics = pointCloudTopics.filter((t) => !/map|background/i.test(t));
+        dispatch(setLidarTopics({ pointTopics: sweepTopics, mapTopics }));
+        dispatch(
+          setAnnotationTopics(
+            topics.filter((t) => t.schemaName === 'foxglove.SceneUpdate').map((t) => t.topic),
+          ),
+        );
+        dispatch(
+          setEgoPoseTopic(
+            topics.find((t) => t.schemaName === 'foxglove.Pose' && /ego/.test(t.topic))?.topic ?? null,
+          ),
+        );
+
         dispatch(setTimeRange({ start: info.startTime, end: info.endTime }));
         // Start playback at the beginning of the recording — timestamps are
         // epoch-ns (huge), so keeping 0n would show negative time and no frame.

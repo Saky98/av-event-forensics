@@ -6,6 +6,57 @@
   min-height: 0;
 }
 
+.viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.viewer-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-tabs {
+  display: flex;
+  gap: 4px;
+  background: #232323;
+  border: 1px solid #3d3d3d;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.viewer-tabs button {
+  background: transparent;
+  border: none;
+  color: #9a9a9a;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewer-tabs button:hover {
+  color: #ddd;
+}
+
+.viewer-tabs button.active {
+  background: #3f6fb5;
+  color: #fff;
+}
+
+/* Fill the remaining vertical space below the header. */
+.viewer-container > .lidar-view {
+  flex: 1;
+  min-height: 0;
+}
+
 .viewer-container h2 {
   font-size: 16px;
   color: #fff;

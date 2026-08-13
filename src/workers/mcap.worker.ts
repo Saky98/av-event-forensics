@@ -20,6 +20,9 @@ import { BlobReadable } from '@mcap/browser';
 import { McapIndexedReader, type Message } from '@mcap/core';
 import { loadDecompressHandlers } from '../utils/decompress';
 import { mimeForFormat, parseCompressedImage } from '../utils/foxglove/compressedImage';
+import { extractPoints, parsePointCloud, type ExtractedPoints } from '../utils/foxglove/pointCloud';
+import { parsePose, type Pose } from '../utils/foxglove/pose';
+import { parseSceneUpdate, type SceneEntity } from '../utils/foxglove/sceneUpdate';
 
 const MESSAGE_INDEX_CACHE_BYTES = 16 * 1024 * 1024;
 /** Preview decode size (grid panels are small; full-res can come later). */
@@ -33,6 +36,13 @@ type WorkerRequest =
       type: 'readImage';
       payload: { topic: string; logTime: bigint; maxWidth?: number; maxHeight?: number };
     }
+  | {
+      id: number;
+      type: 'readLidarPoints';
+      payload: { topic: string; logTime: bigint; decimation?: number };
+    }
+  | { id: number; type: 'readSceneEntities'; payload: { topic: string; logTime: bigint } }
+  | { id: number; type: 'readPose'; payload: { topic: string; logTime: bigint } }
   | { id: number; type: 'close'; payload?: undefined };
 
 /** Minimal worker scope (DedicatedWorkerGlobalScope is not in the DOM lib). */
@@ -101,6 +111,64 @@ function getTopicMessages(topic: string): Promise<Message[]> {
   })();
 }
 
+async function readLidarPoints(payload: {
+  topic: string;
+  logTime: bigint;
+  decimation?: number;
+}): Promise<{
+  actualLogTime: bigint | null;
+  points: ExtractedPoints;
+}> {
+  const messages = await getTopicMessages(payload.topic);
+  let index = lastIndexLE(messages, payload.logTime);
+  // Seek before the first recorded frame: fall back to the first available one
+  // so the view is never empty right at the start of the recording.
+  if (index < 0 && messages.length > 0) {
+    index = 0;
+  }
+  if (index < 0) {
+    return {
+      actualLogTime: null,
+      points: { positions: new Float32Array(0), colors: null, count: 0, total: 0 },
+    };
+  }
+  const message = messages[index];
+  const pc = parsePointCloud(message.data);
+  const points = extractPoints(pc, payload.decimation ?? 1);
+  return { actualLogTime: message.logTime, points };
+}
+
+async function readSceneEntities(payload: {
+  topic: string;
+  logTime: bigint;
+}): Promise<{ actualLogTime: bigint | null; entities: SceneEntity[] }> {
+  const messages = await getTopicMessages(payload.topic);
+  let index = lastIndexLE(messages, payload.logTime);
+  if (index < 0 && messages.length > 0) {
+    index = 0;
+  }
+  if (index < 0) {
+    return { actualLogTime: null, entities: [] };
+  }
+  const update = parseSceneUpdate(messages[index].data);
+  return { actualLogTime: messages[index].logTime, entities: update.entities };
+}
+
+async function readPose(payload: {
+  topic: string;
+  logTime: bigint;
+}): Promise<{ actualLogTime: bigint | null; pose: Pose | null }> {
+  const messages = await getTopicMessages(payload.topic);
+  let index = lastIndexLE(messages, payload.logTime);
+  if (index < 0 && messages.length > 0) {
+    index = 0;
+  }
+  if (index < 0) {
+    return { actualLogTime: null, pose: null };
+  }
+  return { actualLogTime: messages[index].logTime, pose: parsePose(messages[index].data) };
+}
+
 async function readImage(payload: {
   topic: string;
   logTime: bigint;
@@ -135,6 +203,17 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const result = await readImage(payload);
         const transfer = result.bitmap ? [result.bitmap] : [];
         post({ id, ok: true, result }, transfer);
+      } else if (type === 'readLidarPoints') {
+        const result = await readLidarPoints(payload);
+        const transfer: Transferable[] = [result.points.positions.buffer];
+        if (result.points.colors) {
+          transfer.push(result.points.colors.buffer);
+        }
+        post({ id, ok: true, result }, transfer);
+      } else if (type === 'readSceneEntities') {
+        post({ id, ok: true, result: await readSceneEntities(payload) });
+      } else if (type === 'readPose') {
+        post({ id, ok: true, result: await readPose(payload) });
       } else if (type === 'close') {
         reader = null;
         rawCache.clear();

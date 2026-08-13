@@ -67,4 +67,12 @@ export interface AppState {
   playerReady: boolean;
   /** Nominal inter-frame interval in ms (DeepAccident: 10 fps -> 100 ms). */
   frameStepMs: number;
+  /** Dynamic point cloud topics (per-frame lidar sweeps), e.g. /lidar/points. */
+  lidarPointTopics: string[];
+  /** Static point cloud topics (maps), e.g. /lidar/background_map. */
+  lidarMapTopics: string[];
+  /** SceneUpdate topics carrying 3D annotations (bounding boxes). */
+  annotationTopics: string[];
+  /** Topic publishing the ego vehicle pose (foxglove.Pose), or null. */
+  egoPoseTopic: string | null;
 }

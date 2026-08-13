@@ -24,6 +24,10 @@ const initialState: AppState = {
   gridLayout: '6',
   playerReady: false,
   frameStepMs: 100,
+  lidarPointTopics: [],
+  lidarMapTopics: [],
+  annotationTopics: [],
+  egoPoseTopic: null,
 };
 
 export const appSlice = createSlice({
@@ -66,6 +70,16 @@ export const appSlice = createSlice({
     setFrameStepMs: (state, action: PayloadAction<number>) => {
       state.frameStepMs = action.payload;
     },
+    setLidarTopics: (state, action: PayloadAction<{ pointTopics: string[]; mapTopics: string[] }>) => {
+      state.lidarPointTopics = action.payload.pointTopics;
+      state.lidarMapTopics = action.payload.mapTopics;
+    },
+    setAnnotationTopics: (state, action: PayloadAction<string[]>) => {
+      state.annotationTopics = action.payload;
+    },
+    setEgoPoseTopic: (state, action: PayloadAction<string | null>) => {
+      state.egoPoseTopic = action.payload;
+    },
     clearFile: (state) => {
       state.currentFile = null;
       state.fileInfo = null;
@@ -78,6 +92,10 @@ export const appSlice = createSlice({
       state.visibleCameras = [];
       state.playerReady = false;
       state.isPlaying = false;
+      state.lidarPointTopics = [];
+      state.lidarMapTopics = [];
+      state.annotationTopics = [];
+      state.egoPoseTopic = null;
     },
     setIsPlaying: (state, action: PayloadAction<boolean>) => {
       state.isPlaying = action.payload;
@@ -104,6 +122,9 @@ export const {
   setGridLayout,
   setPlayerReady,
   setFrameStepMs,
+  setLidarTopics,
+  setAnnotationTopics,
+  setEgoPoseTopic,
   clearFile,
   setIsPlaying,
   setPlaybackSpeed,

@@ -67,6 +67,43 @@ export interface ReadImageResult {
   actualLogTime: bigint | null;
 }
 
+export interface ExtractedPoints {
+  /** Interleaved xyz (3 floats per point). */
+  positions: Float32Array;
+  /** Interleaved rgb (3 floats per point, 0..1), or null when no intensity field. */
+  colors: Float32Array | null;
+  /** Points actually kept (after decimation). */
+  count: number;
+  /** Points present in the source message. */
+  total: number;
+}
+
+export interface SceneEntity {
+  timestampNanos: bigint;
+  frameId: string;
+  id: string;
+  cubes: Array<{
+    pose: { position: number[]; orientation: number[] };
+    size: number[];
+    color: number[] | null;
+  }>;
+}
+
+export interface ReadLidarPointsResult {
+  actualLogTime: bigint | null;
+  points: ExtractedPoints;
+}
+
+export interface ReadSceneEntitiesResult {
+  actualLogTime: bigint | null;
+  entities: SceneEntity[];
+}
+
+export interface ReadPoseResult {
+  actualLogTime: bigint | null;
+  pose: { position: number[]; orientation: number[] } | null;
+}
+
 export function useMcapWorker() {
   const initWorker = useCallback(async (file: File): Promise<void> => {
     await request('init', { file });
@@ -100,5 +137,29 @@ export function useMcapWorker() {
     }
   }, []);
 
-  return { initWorker, readImage, closeWorker };
+  const readLidarPoints = useCallback(
+    async (topic: string, logTime: bigint, decimation?: number): Promise<ReadLidarPointsResult> => {
+      const result = await request('readLidarPoints', { topic, logTime, decimation });
+      return result as ReadLidarPointsResult;
+    },
+    [],
+  );
+
+  const readSceneEntities = useCallback(
+    async (topic: string, logTime: bigint): Promise<ReadSceneEntitiesResult> => {
+      const result = await request('readSceneEntities', { topic, logTime });
+      return result as ReadSceneEntitiesResult;
+    },
+    [],
+  );
+
+  const readPose = useCallback(
+    async (topic: string, logTime: bigint): Promise<ReadPoseResult> => {
+      const result = await request('readPose', { topic, logTime });
+      return result as ReadPoseResult;
+    },
+    [],
+  );
+
+  return { initWorker, readImage, readLidarPoints, readSceneEntities, readPose, closeWorker };
 }

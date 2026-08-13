@@ -93,7 +93,15 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Load annotations (bounding boxes) from the corresponding topics and draw them as `BoxHelper` or `Box3`.
 - Sync the 3D scene with the timeline.
 
-**Status:** ⏳ Not started
+**Status:** ✅ Done — verified live in headless Chromium (WebGL renders, sweep + map + boxes + ego synced, play/scrub works). Details:
+- Flatbuffer parsers (hand-written, no flatbuffers dep): `src/utils/foxglove/flatbuffer.ts` (generic Fb reader), `pointCloud.ts` (`foxglove.PointCloud` + `extractPoints`), `sceneUpdate.ts` (`foxglove.SceneUpdate` → entity cubes), `pose.ts` (`foxglove.Pose`).
+- **Schema gotcha:** these MCAPs use the older foxglove layout where `Vector3`/`Quaternion`/`Color` are **tables** (uoffset refs), not structs; `Color` fields are **float64** with defaults `(r=1, g=0, b=1, a=1)`; flatbuffers omits fields equal to their default, so absent offset ⇒ 0, absent blue ⇒ 1. `Fb.field()` guards ids beyond the vtable size (empty tables are common for identity poses).
+- Worker: `readLidarPoints` (parse + decimate + extract, transfers Float32Arrays), `readSceneEntities`, `readPose`; nearest-frame seek falls back to the first frame when seeking before the start.
+- `src/components/LidarView/LidarView.tsx` + CSS: Three.js scene (Points, OrbitControls, grid/axes), decimation 1–16, point-size slider, toggles (Map/Boxes/Ego), live stats; ROS→Three axis mapping in `src/utils/coordinates.ts` (x,y,z → x,z,−y).
+- Viewer: **Cameras | 3D LiDAR** tabs (only when relevant topics exist).
+- Store: `lidarPointTopics`, `lidarMapTopics`, `annotationTopics`, `egoPoseTopic` (detected in `useMcapReader` by schema: `foxglove.PointCloud` / `SceneUpdate` / `Pose`).
+- Tests: `scripts/validate-parsers.ts` (parse the real file: 39 408 pts/sweep, 1 776 183 map pts, 23 boxes with 3 colors, ego pose), `scripts/smoke-lidar.mjs` (data-path checks incl. decimation math + coordinate transform), `scripts/verify-lidar.mjs` (headless Chromium E2E; needs playwright@1.48.2 on macOS 13).
+- Three.js (`three` + `@types/three`) added as dependencies; bundle ~776 KB (lazy-loading the lidar view is a later polish item).
 
 ---
 
@@ -120,7 +128,7 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 ---
 
 ## Current Phase
-**Phase 3: Multi-channel Video Player (Cameras)** — ✅ done (live browser test passed: 6-camera grid, play, scrub). **Next: Phase 4 — LiDAR 3D Point Cloud** (worker + parser already in place; `/lidar/points`, `/lidar/background_map` 1.77M pts, `/annotations/objects`, `/ego/pose`). Also open: Phase 5 (telemetry) or Phase 3 polish (full-res on click, per-camera toggles).
+**Phase 4: LiDAR 3D Point Cloud** — ✅ done (headless Chromium verified: WebGL scene, 39 408 pts/sweep decimated, 1 776 183-pt background map, 23 annotation boxes, ego marker, play/scrub sync). **Next: Phase 5 — Telemetry & Charts** (uPlot; `/ego/vehicle_info`, `/ego/acceleration` or similar numeric topics — check actual topic list in `storage/Town02_with_map.mcap`; vertical cursor synced to timeline, click-to-seek). Also open: Phase 3 polish (full-res on click, per-camera toggles) and Phase 4 polish (lazy-load three.js chunk, camera-follow ego, ego trajectory).
 *(Update this line as we progress)*
 
 ## Git Workflow (from Phase 4 onward)
@@ -131,6 +139,17 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Large data (`storage/`) and build artifacts stay gitignored.
 
 ---
+
+## Session Log — 13.08.2026 (Phase 4)
+
+### Phase 4 — LiDAR 3D Visualization (done, verified)
+1. Git housekeeping: pushed Phases 1–3 snapshot (`4dc622d` + cleanup `6d40afd` + handoff note `57cfc69`), tag `phases-1-3-baseline`, named phases in README with per-phase branch/MR convention, created `phase/4-lidar-3d`.
+2. Explored the real file: `/lidar/points` (foxglove.PointCloud, flatbuffer, 45 msgs, 39 408 pts @ 16 B stride, x/y/z/intensity float32), `/lidar/background_map` (1 776 183 pts), `/annotations/objects` (foxglove.SceneUpdate, 23 cubes, colors: blue vehicles / orange truck / red collision), `/ego/pose` (foxglove.Pose).
+3. Wrote generic flatbuffer reader + domain parsers (`pointCloud.ts`, `sceneUpdate.ts`, `pose.ts`); discovered the legacy table-based Vector3/Quaternion/Color layout (validated via `scripts/python/deepaccident_to_mcap.py` + `.bfbs`).
+4. Extended worker (`readLidarPoints`/`readSceneEntities`/`readPose`, first-frame fallback) + hook client.
+5. Added lidar topic detection to store + `useMcapReader`.
+6. Built `LidarView` (Three.js): points, decimation, OrbitControls, translucent boxes, ego marker, toggles, stats; ROS→Three coordinate utils; Viewer tabs.
+7. Tests: `validate-parsers.ts`, `smoke-lidar.mjs`, headless-Chromium `verify-lidar.mjs` (WebGL ok, 19 704 pts @ dec 2, 23 boxes, map 1776k, play works; screenshot pixel analysis confirms boxes visible).
 
 ## Session Log — 05.08.2026 (today's work, all steps done)
 
