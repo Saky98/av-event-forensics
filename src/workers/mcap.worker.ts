@@ -55,6 +55,16 @@ type WorkerRequest =
         originNs: bigint;
       };
     }
+  | {
+      id: number;
+      type: 'readEvents';
+      payload: {
+        collisionTopic?: string | null;
+        brakingTopic?: string | null;
+        originNs: bigint;
+      };
+    }
+  | { id: number; type: 'hashFile'; payload?: undefined }
   | { id: number; type: 'close'; payload?: undefined };
 
 /** Minimal worker scope (DedicatedWorkerGlobalScope is not in the DOM lib). */
@@ -67,6 +77,8 @@ const ctx = self as unknown as WorkerScope;
 let reader: McapIndexedReader | null = null;
 /** Raw messages per topic (lazily read once, then reused for seeks). */
 const rawCache = new Map<string, Message[]>();
+/** The loaded File, kept for hashing. */
+let activeFile: File | null = null;
 
 function post(message: unknown, transfer?: Transferable[]): void {
   if (transfer !== undefined && transfer.length > 0) {
@@ -100,6 +112,7 @@ async function init(file: File): Promise<{ channels: number; chunks: number }> {
     messageIndexCacheSizeBytes: MESSAGE_INDEX_CACHE_BYTES,
   });
   rawCache.clear();
+  activeFile = file;
   return { channels: reader.channelsById.size, chunks: reader.chunkIndexes.length };
 }
 
@@ -251,6 +264,87 @@ async function readTelemetry(payload: {
   return { velocity, acceleration, pose };
 }
 
+/** Reads a std_msgs/Bool JSON topic into a 0/1 series (collision flag). */
+async function readBoolSeries(
+  topic: string | null | undefined,
+  toSeconds: (logTime: bigint) => number,
+): Promise<{ t: Float64Array; v: Int8Array } | null> {
+  if (!topic) {
+    return null;
+  }
+  const messages = await getTopicMessages(topic);
+  if (messages.length === 0) {
+    return null;
+  }
+  const t = new Float64Array(messages.length);
+  const v = new Int8Array(messages.length);
+  for (let i = 0; i < messages.length; i++) {
+    let value: number;
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(messages[i].data)) as { data?: boolean };
+      value = parsed.data === true ? 1 : 0;
+    } catch {
+      value = 0; // malformed payload -> not a collision
+    }
+    t[i] = toSeconds(messages[i].logTime);
+    v[i] = value;
+  }
+  return { t, v };
+}
+
+/** Reads /events/sudden_braking (std_msgs/String wrapping JSON) into parsed events. */
+async function readBrakingEvents(
+  topic: string | null | undefined,
+  toSeconds: (logTime: bigint) => number,
+): Promise<Array<{ t: number; event: Record<string, unknown> | null }>> {
+  if (!topic) {
+    return [];
+  }
+  const messages = await getTopicMessages(topic);
+  const out: Array<{ t: number; event: Record<string, unknown> | null }> = [];
+  for (const m of messages) {
+    let event: Record<string, unknown> | null = null;
+    try {
+      const outer = JSON.parse(new TextDecoder().decode(m.data)) as {
+        data?: string | Record<string, unknown>;
+      };
+      if (typeof outer.data === 'string') {
+        event = JSON.parse(outer.data) as Record<string, unknown>;
+      } else if (outer.data && typeof outer.data === 'object') {
+        event = outer.data as Record<string, unknown>;
+      }
+    } catch {
+      event = null;
+    }
+    out.push({ t: toSeconds(m.logTime), event });
+  }
+  return out;
+}
+
+async function readEvents(payload: {
+  collisionTopic?: string | null;
+  brakingTopic?: string | null;
+  originNs: bigint;
+}): Promise<{
+  collision: { t: Float64Array; v: Int8Array } | null;
+  braking: Array<{ t: number; event: Record<string, unknown> | null }>;
+}> {
+  const toSeconds = (logTime: bigint): number => Number(logTime - payload.originNs) / 1e9;
+  const collision = await readBoolSeries(payload.collisionTopic, toSeconds);
+  const braking = await readBrakingEvents(payload.brakingTopic, toSeconds);
+  return { collision, braking };
+}
+
+/** SHA-256 of the loaded file (hex). */
+async function hashFile(): Promise<string> {
+  if (!activeFile) {
+    throw new Error('no file loaded');
+  }
+  const buf = await activeFile.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function readImage(payload: {
   topic: string;
   logTime: bigint;
@@ -298,9 +392,14 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
         post({ id, ok: true, result: await readPose(payload) });
       } else if (type === 'readTelemetry') {
         post({ id, ok: true, result: await readTelemetry(payload) });
+      } else if (type === 'readEvents') {
+        post({ id, ok: true, result: await readEvents(payload) });
+      } else if (type === 'hashFile') {
+        post({ id, ok: true, result: await hashFile() });
       } else if (type === 'close') {
         reader = null;
         rawCache.clear();
+        activeFile = null;
         post({ id, ok: true, result: undefined });
       } else {
         post({ id, ok: false, error: `unknown request type: ${String(type)}` });

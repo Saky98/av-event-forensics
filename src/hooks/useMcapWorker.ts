@@ -115,6 +115,11 @@ export interface TelemetryResult {
   pose: { t: Float64Array; x: Float64Array; y: Float64Array; yaw: Float64Array } | null;
 }
 
+export interface EventsResult {
+  collision: { t: Float64Array; v: Int8Array } | null;
+  braking: Array<{ t: number; event: Record<string, unknown> | null }>;
+}
+
 export function useMcapWorker() {
   const initWorker = useCallback(async (file: File): Promise<void> => {
     await request('init', { file });
@@ -185,5 +190,32 @@ export function useMcapWorker() {
     [],
   );
 
-  return { initWorker, readImage, readLidarPoints, readSceneEntities, readPose, readTelemetry, closeWorker };
+  const readEvents = useCallback(
+    async (payload: {
+      collisionTopic?: string | null;
+      brakingTopic?: string | null;
+      originNs: bigint;
+    }): Promise<EventsResult> => {
+      const result = await request('readEvents', payload);
+      return result as EventsResult;
+    },
+    [],
+  );
+
+  const hashFile = useCallback(async (): Promise<string> => {
+    const result = await request('hashFile', undefined);
+    return result as string;
+  }, []);
+
+  return {
+    initWorker,
+    readImage,
+    readLidarPoints,
+    readSceneEntities,
+    readPose,
+    readTelemetry,
+    readEvents,
+    hashFile,
+    closeWorker,
+  };
 }

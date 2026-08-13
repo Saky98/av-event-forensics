@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type {
   AppState,
+  EventData,
   GridLayout,
   McapFileInfo,
   McapFileSummary,
@@ -32,6 +33,11 @@ const initialState: AppState = {
   velocityTopic: null,
   accelerationTopic: null,
   telemetry: null,
+  collisionTopic: null,
+  brakingTopic: null,
+  events: null,
+  fileHash: null,
+  expectedHash: null,
 };
 
 export const appSlice = createSlice({
@@ -93,6 +99,21 @@ export const appSlice = createSlice({
     setTelemetry: (state, action: PayloadAction<TelemetryData | null>) => {
       state.telemetry = action.payload;
     },
+    setCollisionTopic: (state, action: PayloadAction<string | null>) => {
+      state.collisionTopic = action.payload;
+    },
+    setBrakingTopic: (state, action: PayloadAction<string | null>) => {
+      state.brakingTopic = action.payload;
+    },
+    setEvents: (state, action: PayloadAction<EventData | null>) => {
+      state.events = action.payload;
+    },
+    setFileHash: (state, action: PayloadAction<string | null>) => {
+      state.fileHash = action.payload;
+    },
+    setExpectedHash: (state, action: PayloadAction<string | null>) => {
+      state.expectedHash = action.payload;
+    },
     clearFile: (state) => {
       state.currentFile = null;
       state.fileInfo = null;
@@ -112,6 +133,11 @@ export const appSlice = createSlice({
       state.velocityTopic = null;
       state.accelerationTopic = null;
       state.telemetry = null;
+      state.collisionTopic = null;
+      state.brakingTopic = null;
+      state.events = null;
+      state.fileHash = null;
+      state.expectedHash = null;
     },
     setIsPlaying: (state, action: PayloadAction<boolean>) => {
       state.isPlaying = action.payload;
@@ -144,6 +170,11 @@ export const {
   setVelocityTopic,
   setAccelerationTopic,
   setTelemetry,
+  setCollisionTopic,
+  setBrakingTopic,
+  setEvents,
+  setFileHash,
+  setExpectedHash,
   clearFile,
   setIsPlaying,
   setPlaybackSpeed,

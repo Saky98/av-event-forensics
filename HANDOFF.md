@@ -131,12 +131,19 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Build a "hash chain": for each frame (or significant event) compute a hash and write it to a dedicated topic (simulation).
 - Add an integrity UI (green/red) and a warning if the hash does not match.
 
-**Status:** ⏳ Not started
+**Status:** ✅ Done — verified live in headless Chromium. Details:
+- Worker `hashFile`: SHA-256 of the raw file bytes (crypto.subtle in the worker; `activeFile` kept for hashing). Matches `shasum -a 256` (`Town02_with_map.mcap` = `3d9abdd8…`, truck_collision = `6816edf0…`).
+- Worker `readEvents`: `/collision/detected` (std_msgs/Bool → 0/1 series) + `/events/sudden_braking` (std_msgs/String wrapping JSON → parsed events).
+- `src/utils/forensics.ts` (pure, Node-testable): `sha256Hex`, `buildChainRecords` (45 per-frame records from telemetry + event flags matched by nearest time), `computeChain` (hash[i] = SHA-256(seed|hash[i-1]|canonical[i])), `checkChain` (first divergence), `shortHash`.
+- Store: `collisionTopic`/`brakingTopic`/`events`/`fileHash`/`expectedHash`; detection + loading in `useMcapReader`.
+- `src/components/ForensicPanel/` — 3 cards: ① File Integrity (computed SHA-256 + copy, expected-hash input → INTACT/MISMATCH green/red badge) ② Provenance & Conversion Metadata (library `python mcap 1.3.1`, profile empty, counts; honest note: no MCAP metadata/provenance records written by the converter) ③ Frame Hash Chain (45 links table with t/v/a/flags + per-link hash, Verify / Simulate tamper (frame 22) / Reset; tamper marks links from that frame red and the badge shows `broke at link N`).
+- Viewer: 4th tab **Forensic**.
+- Tests: `scripts/smoke-forensics.mjs` (SHA-256 vs node crypto + known vector, chain determinism, tamper detected exactly at the tampered frame), `scripts/verify-forensics.mjs` (headless Chromium E2E). All prior smoke tests still pass.
 
 ---
 
 ## Current Phase
-**Phase 5: Telemetry & Charts** — ✅ done (headless Chromium verified: uPlot with velocity/acceleration/heading, cursor follows play, click-to-seek, zoom). **Next: Phase 6 — Forensic Validation & Hashing** (SHA-256 of the raw file, provenance topic, per-event hash chain, green/red integrity UI). Also open polish: Phase 3 (full-res on click, per-camera toggles), Phase 4 (lazy-load three.js chunk, camera-follow ego, ego trajectory), Phase 5 (event markers for collision/braking on the chart).
+**All 6 phases are DONE** (scaffold, file manager & MCAP loading, multi-camera player, LiDAR 3D, telemetry, forensic validation) — verified live in headless Chromium and via smoke tests on the real files. Open polish backlog: Phase 3 (full-res on click, per-camera toggles), Phase 4 (lazy-load three.js chunk, camera-follow ego, ego trajectory, vehicle_info topic if re-converted), Phase 5 (event markers for collision/braking on the chart, better axes), Phase 6 (write provenance/metadata + per-frame chain into a re-converted MCAP via the python converter so the file itself carries the chain). Also possible: export a forensics report (JSON/text) from the Forensic tab.
 *(Update this line as we progress)*
 
 ## Git Workflow (from Phase 4 onward)
@@ -147,6 +154,17 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Large data (`storage/`) and build artifacts stay gitignored.
 
 ---
+
+## Session Log — 13.08.2026 (Phase 6)
+
+### Phase 6 — Forensic Validation & Hashing (done, verified)
+1. Merged Phase 5 into `main` (fast-forward), tagged `phase-5-telemetry-charts`, created `phase/6-forensic-validation`.
+2. Confirmed the real files have NO MCAP metadata/provenance records and no .sha256 sidecars — hash + chain UI is built on the raw file + per-frame data instead.
+3. Worker: `hashFile` (SHA-256, matches `shasum`) + `readEvents` (collision bool series, braking JSON events).
+4. `src/utils/forensics.ts`: hash + chain-of-custody logic (pure, Node-testable).
+5. `ForensicPanel` (3 cards) + 4th tab; store: events/fileHash/expectedHash + detection.
+6. Browser verification: hash matches reference, INTACT/MISMATCH badges, 45-link chain, tamper breaks at link 22, reset restores.
+7. Tests: `smoke-forensics.mjs` (both real files, hash + chain determinism + tamper), `verify-forensics.mjs` (headless Chromium); all prior smoke tests + views unaffected.
 
 ## Session Log — 13.08.2026 (Phase 5)
 

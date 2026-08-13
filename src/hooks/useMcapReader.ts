@@ -8,6 +8,10 @@ import {
   setCurrentFile,
   setCurrentTimestamp,
   setEgoPoseTopic,
+  setCollisionTopic,
+  setBrakingTopic,
+  setEvents,
+  setFileHash,
   setFileInfo,
   setFrameStepMs,
   setLidarTopics,
@@ -20,7 +24,7 @@ import {
   setVelocityTopic,
   setVisibleCameras,
 } from '../store/appStore';
-import type { TelemetryData } from '../types';
+import type { EventData, TelemetryData } from '../types';
 import { useMcapWorker } from './useMcapWorker';
 import { clearMcapSession, loadMcapFile } from '../utils/mcap';
 
@@ -40,7 +44,7 @@ function isCameraTopic(schemaName: string, topic: string): boolean {
  */
 export function useMcapReader() {
   const dispatch = useDispatch();
-  const { initWorker, closeWorker, readTelemetry } = useMcapWorker();
+  const { initWorker, closeWorker, readTelemetry, readEvents, hashFile } = useMcapWorker();
 
   const loadFile = useCallback(
     async (file: File) => {
@@ -82,6 +86,14 @@ export function useMcapReader() {
         dispatch(setVelocityTopic(velocityTopic));
         dispatch(setAccelerationTopic(accelerationTopic));
 
+        // Event topics (Phase 6): collision flag + sudden-braking records.
+        const collisionTopic =
+          topics.find((t) => t.schemaName === 'std_msgs/Bool' && /collision/i.test(t.topic))?.topic ?? null;
+        const brakingTopic =
+          topics.find((t) => t.schemaName === 'std_msgs/String' && /braking|event/i.test(t.topic))?.topic ?? null;
+        dispatch(setCollisionTopic(collisionTopic));
+        dispatch(setBrakingTopic(brakingTopic));
+
         dispatch(setTimeRange({ start: info.startTime, end: info.endTime }));
         // Start playback at the beginning of the recording — timestamps are
         // epoch-ns (huge), so keeping 0n would show negative time and no frame.
@@ -119,6 +131,29 @@ export function useMcapReader() {
           } catch (error) {
             console.warn('telemetry load failed:', error);
           }
+
+          // Events (collision / braking) + file SHA-256 (Phase 6).
+          try {
+            const ev = await readEvents({
+              collisionTopic,
+              brakingTopic,
+              originNs: info.startTime,
+            });
+            const events: EventData = {
+              collision: ev.collision
+                ? { t: Array.from(ev.collision.t), v: Array.from(ev.collision.v) }
+                : null,
+              braking: ev.braking,
+            };
+            dispatch(setEvents(events));
+          } catch (error) {
+            console.warn('events load failed:', error);
+          }
+          try {
+            dispatch(setFileHash(await hashFile()));
+          } catch (error) {
+            console.warn('file hash failed:', error);
+          }
         } catch (error) {
           dispatch(setPlayerReady(false));
           console.warn('MCAP worker init failed:', error);
@@ -132,7 +167,7 @@ export function useMcapReader() {
         dispatch(setLoadStatus('error'));
       }
     },
-    [dispatch, initWorker, readTelemetry],
+    [dispatch, initWorker, readTelemetry, readEvents, hashFile],
   );
 
   const closeFile = useCallback(() => {

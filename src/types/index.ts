@@ -58,6 +58,12 @@ export interface TelemetryData {
   pose: { t: number[]; x: number[]; y: number[]; yaw: number[] } | null;
 }
 
+/** Event topics (collision flag, sudden-braking records) — Phase 6. */
+export interface EventData {
+  collision: { t: number[]; v: number[] } | null;
+  braking: Array<{ t: number; event: Record<string, unknown> | null }>;
+}
+
 export interface AppState {
   currentTimestamp: bigint;
   topics: McapTopic[];
@@ -93,4 +99,14 @@ export interface AppState {
   accelerationTopic: string | null;
   /** Loaded telemetry time series (relative seconds), or null when unavailable. */
   telemetry: TelemetryData | null;
+  /** Topic publishing collision flags (std_msgs/Bool), or null. */
+  collisionTopic: string | null;
+  /** Topic publishing sudden-braking events (std_msgs/String), or null. */
+  brakingTopic: string | null;
+  /** Parsed event topics (Phase 6). */
+  events: EventData | null;
+  /** SHA-256 of the loaded file (computed in the worker), or null. */
+  fileHash: string | null;
+  /** Optional expected hash the user pastes for comparison. */
+  expectedHash: string | null;
 }

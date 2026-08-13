@@ -3,11 +3,12 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { formatBytes, formatDuration } from '../../utils/mcap';
 import CameraGrid from '../CameraGrid/CameraGrid';
+import ForensicPanel from '../ForensicPanel/ForensicPanel';
 import LidarView from '../LidarView/LidarView';
 import TelemetryPanel from '../TelemetryPanel/TelemetryPanel';
 import './Viewer.css';
 
-type ViewerTab = 'cameras' | 'lidar' | 'telemetry';
+type ViewerTab = 'cameras' | 'lidar' | 'telemetry' | 'forensic';
 
 const Viewer: React.FC = () => {
   const {
@@ -57,11 +58,20 @@ const Viewer: React.FC = () => {
   const showCameras = cameraTopics.length > 0 && playerReady;
   const showLidar = (lidarPointTopics.length > 0 || lidarMapTopics.length > 0) && playerReady;
   const showTelemetry = Boolean(velocityTopic || accelerationTopic || egoPoseTopic) && playerReady;
-  const tabsCount = [showCameras, showLidar, showTelemetry].filter(Boolean).length;
+  const showForensic = playerReady;
+  const tabsCount = [showCameras, showLidar, showTelemetry, showForensic].filter(Boolean).length;
   const hasTabs = tabsCount > 1;
-  const activeTab: ViewerTab = hasTabs ? tab : showCameras ? 'cameras' : showLidar ? 'lidar' : 'telemetry';
+  const activeTab: ViewerTab = hasTabs
+    ? tab
+    : showCameras
+      ? 'cameras'
+      : showLidar
+        ? 'lidar'
+        : showTelemetry
+          ? 'telemetry'
+          : 'forensic';
 
-  if (!showCameras && !showLidar && !showTelemetry) {
+  if (!showCameras && !showLidar && !showTelemetry && !showForensic) {
     return (
       <div className="viewer-container">
         <h2>{fileInfo.name}</h2>
@@ -95,7 +105,7 @@ const Viewer: React.FC = () => {
             </div>
           </div>
           <p className="summary-hint">
-            No playable content (cameras / LiDAR / telemetry) found in this recording.
+            No playable content (cameras / LiDAR / telemetry / forensic) found in this recording.
           </p>
         </div>
       </div>
@@ -132,12 +142,21 @@ const Viewer: React.FC = () => {
                 Telemetry
               </button>
             )}
+            {showForensic && (
+              <button
+                className={activeTab === 'forensic' ? 'active' : ''}
+                onClick={() => setTab('forensic')}
+              >
+                Forensic
+              </button>
+            )}
           </div>
         )}
       </div>
       {activeTab === 'cameras' && <CameraGrid />}
       {activeTab === 'lidar' && <LidarView />}
       {activeTab === 'telemetry' && <TelemetryPanel />}
+      {activeTab === 'forensic' && <ForensicPanel />}
     </div>
   );
 };
