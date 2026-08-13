@@ -23,6 +23,7 @@ import { mimeForFormat, parseCompressedImage } from '../utils/foxglove/compresse
 import { extractPoints, parsePointCloud, type ExtractedPoints } from '../utils/foxglove/pointCloud';
 import { parsePose, type Pose } from '../utils/foxglove/pose';
 import { parseSceneUpdate, type SceneEntity } from '../utils/foxglove/sceneUpdate';
+import { yawFromQuaternion } from '../utils/coordinates';
 
 const MESSAGE_INDEX_CACHE_BYTES = 16 * 1024 * 1024;
 /** Preview decode size (grid panels are small; full-res can come later). */
@@ -43,6 +44,17 @@ type WorkerRequest =
     }
   | { id: number; type: 'readSceneEntities'; payload: { topic: string; logTime: bigint } }
   | { id: number; type: 'readPose'; payload: { topic: string; logTime: bigint } }
+  | {
+      id: number;
+      type: 'readTelemetry';
+      payload: {
+        velocityTopic?: string | null;
+        accelerationTopic?: string | null;
+        poseTopic?: string | null;
+        /** Recording start (ns) — x axis values are returned relative to it, in seconds. */
+        originNs: bigint;
+      };
+    }
   | { id: number; type: 'close'; payload?: undefined };
 
 /** Minimal worker scope (DedicatedWorkerGlobalScope is not in the DOM lib). */
@@ -169,6 +181,76 @@ async function readPose(payload: {
   return { actualLogTime: messages[index].logTime, pose: parsePose(messages[index].data) };
 }
 
+/** Reads a std_msgs/Float64 JSON topic into a relative-seconds time series. */
+async function readFloat64Series(
+  topic: string | null | undefined,
+  toSeconds: (logTime: bigint) => number,
+): Promise<{ t: Float64Array; v: Float64Array } | null> {
+  if (!topic) {
+    return null;
+  }
+  const messages = await getTopicMessages(topic);
+  if (messages.length === 0) {
+    return null;
+  }
+  const t = new Float64Array(messages.length);
+  const v = new Float64Array(messages.length);
+  for (let i = 0; i < messages.length; i++) {
+    let value = NaN;
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(messages[i].data)) as { data?: number };
+      if (typeof parsed.data === 'number') {
+        value = parsed.data;
+      }
+    } catch {
+      // malformed payload -> NaN, kept in the series for a visible gap
+    }
+    t[i] = toSeconds(messages[i].logTime);
+    v[i] = value;
+  }
+  return { t, v };
+}
+
+async function readTelemetry(payload: {
+  velocityTopic?: string | null;
+  accelerationTopic?: string | null;
+  poseTopic?: string | null;
+  originNs: bigint;
+}): Promise<{
+  velocity: { t: Float64Array; v: Float64Array } | null;
+  acceleration: { t: Float64Array; v: Float64Array } | null;
+  pose: { t: Float64Array; x: Float64Array; y: Float64Array; yaw: Float64Array } | null;
+}> {
+  const toSeconds = (logTime: bigint): number => Number(logTime - payload.originNs) / 1e9;
+  const velocity = await readFloat64Series(payload.velocityTopic, toSeconds);
+  const acceleration = await readFloat64Series(payload.accelerationTopic, toSeconds);
+
+  let pose: {
+    t: Float64Array;
+    x: Float64Array;
+    y: Float64Array;
+    yaw: Float64Array;
+  } | null = null;
+  if (payload.poseTopic) {
+    const messages = await getTopicMessages(payload.poseTopic);
+    if (messages.length > 0) {
+      const t = new Float64Array(messages.length);
+      const x = new Float64Array(messages.length);
+      const y = new Float64Array(messages.length);
+      const yaw = new Float64Array(messages.length);
+      for (let i = 0; i < messages.length; i++) {
+        const p = parsePose(messages[i].data);
+        t[i] = toSeconds(messages[i].logTime);
+        x[i] = p.position[0];
+        y[i] = p.position[1];
+        yaw[i] = yawFromQuaternion(p.orientation);
+      }
+      pose = { t, x, y, yaw };
+    }
+  }
+  return { velocity, acceleration, pose };
+}
+
 async function readImage(payload: {
   topic: string;
   logTime: bigint;
@@ -214,6 +296,8 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
         post({ id, ok: true, result: await readSceneEntities(payload) });
       } else if (type === 'readPose') {
         post({ id, ok: true, result: await readPose(payload) });
+      } else if (type === 'readTelemetry') {
+        post({ id, ok: true, result: await readTelemetry(payload) });
       } else if (type === 'close') {
         reader = null;
         rawCache.clear();

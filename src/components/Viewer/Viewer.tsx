@@ -4,9 +4,10 @@ import { RootState } from '../../store';
 import { formatBytes, formatDuration } from '../../utils/mcap';
 import CameraGrid from '../CameraGrid/CameraGrid';
 import LidarView from '../LidarView/LidarView';
+import TelemetryPanel from '../TelemetryPanel/TelemetryPanel';
 import './Viewer.css';
 
-type ViewerTab = 'cameras' | 'lidar';
+type ViewerTab = 'cameras' | 'lidar' | 'telemetry';
 
 const Viewer: React.FC = () => {
   const {
@@ -17,6 +18,9 @@ const Viewer: React.FC = () => {
     playerReady,
     lidarPointTopics,
     lidarMapTopics,
+    velocityTopic,
+    accelerationTopic,
+    egoPoseTopic,
   } = useSelector((state: RootState) => state.app);
   const [tab, setTab] = useState<ViewerTab>('cameras');
 
@@ -52,9 +56,12 @@ const Viewer: React.FC = () => {
 
   const showCameras = cameraTopics.length > 0 && playerReady;
   const showLidar = (lidarPointTopics.length > 0 || lidarMapTopics.length > 0) && playerReady;
-  const hasTabs = showCameras && showLidar;
+  const showTelemetry = Boolean(velocityTopic || accelerationTopic || egoPoseTopic) && playerReady;
+  const tabsCount = [showCameras, showLidar, showTelemetry].filter(Boolean).length;
+  const hasTabs = tabsCount > 1;
+  const activeTab: ViewerTab = hasTabs ? tab : showCameras ? 'cameras' : showLidar ? 'lidar' : 'telemetry';
 
-  if (!showCameras && !showLidar) {
+  if (!showCameras && !showLidar && !showTelemetry) {
     return (
       <div className="viewer-container">
         <h2>{fileInfo.name}</h2>
@@ -88,14 +95,12 @@ const Viewer: React.FC = () => {
             </div>
           </div>
           <p className="summary-hint">
-            No playable content (cameras / LiDAR) found in this recording.
+            No playable content (cameras / LiDAR / telemetry) found in this recording.
           </p>
         </div>
       </div>
     );
   }
-
-  const activeTab: ViewerTab = hasTabs ? tab : showCameras ? 'cameras' : 'lidar';
 
   return (
     <div className="viewer-container">
@@ -103,22 +108,36 @@ const Viewer: React.FC = () => {
         <h2 className="viewer-title">{fileInfo.name}</h2>
         {hasTabs && (
           <div className="viewer-tabs">
-            <button
-              className={activeTab === 'cameras' ? 'active' : ''}
-              onClick={() => setTab('cameras')}
-            >
-              Cameras
-            </button>
-            <button
-              className={activeTab === 'lidar' ? 'active' : ''}
-              onClick={() => setTab('lidar')}
-            >
-              3D LiDAR
-            </button>
+            {showCameras && (
+              <button
+                className={activeTab === 'cameras' ? 'active' : ''}
+                onClick={() => setTab('cameras')}
+              >
+                Cameras
+              </button>
+            )}
+            {showLidar && (
+              <button
+                className={activeTab === 'lidar' ? 'active' : ''}
+                onClick={() => setTab('lidar')}
+              >
+                3D LiDAR
+              </button>
+            )}
+            {showTelemetry && (
+              <button
+                className={activeTab === 'telemetry' ? 'active' : ''}
+                onClick={() => setTab('telemetry')}
+              >
+                Telemetry
+              </button>
+            )}
           </div>
         )}
       </div>
-      {activeTab === 'cameras' ? <CameraGrid /> : <LidarView />}
+      {activeTab === 'cameras' && <CameraGrid />}
+      {activeTab === 'lidar' && <LidarView />}
+      {activeTab === 'telemetry' && <TelemetryPanel />}
     </div>
   );
 };

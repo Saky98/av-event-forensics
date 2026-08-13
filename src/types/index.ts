@@ -46,6 +46,18 @@ export interface TimeRange {
 /** Number of cameras shown in the grid: 1, 4 (2x2) or 6 (2x3, default). */
 export type GridLayout = '1' | '4' | '6';
 
+/** A numeric time series, x in seconds relative to the recording start. */
+export interface TelemetrySeries {
+  t: number[];
+  v: number[];
+}
+
+export interface TelemetryData {
+  velocity: TelemetrySeries | null;
+  acceleration: TelemetrySeries | null;
+  pose: { t: number[]; x: number[]; y: number[]; yaw: number[] } | null;
+}
+
 export interface AppState {
   currentTimestamp: bigint;
   topics: McapTopic[];
@@ -75,4 +87,10 @@ export interface AppState {
   annotationTopics: string[];
   /** Topic publishing the ego vehicle pose (foxglove.Pose), or null. */
   egoPoseTopic: string | null;
+  /** Topic publishing ego velocity (std_msgs/Float64), or null. */
+  velocityTopic: string | null;
+  /** Topic publishing ego acceleration (std_msgs/Float64), or null. */
+  accelerationTopic: string | null;
+  /** Loaded telemetry time series (relative seconds), or null when unavailable. */
+  telemetry: TelemetryData | null;
 }

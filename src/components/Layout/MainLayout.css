@@ -18,6 +18,9 @@
 .viewer-area {
   background: #252525;
   padding: 12px;
+  /* Keep the grid row from growing to fit overflowing content (e.g. uPlot). */
+  min-height: 0;
+  overflow: hidden;
 }
 
 .timeline-area {

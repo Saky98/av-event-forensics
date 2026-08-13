@@ -6,6 +6,7 @@ import type {
   McapFileSummary,
   McapLoadStatus,
   McapTopic,
+  TelemetryData,
   TimeRange,
 } from '../types';
 
@@ -28,6 +29,9 @@ const initialState: AppState = {
   lidarMapTopics: [],
   annotationTopics: [],
   egoPoseTopic: null,
+  velocityTopic: null,
+  accelerationTopic: null,
+  telemetry: null,
 };
 
 export const appSlice = createSlice({
@@ -80,6 +84,15 @@ export const appSlice = createSlice({
     setEgoPoseTopic: (state, action: PayloadAction<string | null>) => {
       state.egoPoseTopic = action.payload;
     },
+    setVelocityTopic: (state, action: PayloadAction<string | null>) => {
+      state.velocityTopic = action.payload;
+    },
+    setAccelerationTopic: (state, action: PayloadAction<string | null>) => {
+      state.accelerationTopic = action.payload;
+    },
+    setTelemetry: (state, action: PayloadAction<TelemetryData | null>) => {
+      state.telemetry = action.payload;
+    },
     clearFile: (state) => {
       state.currentFile = null;
       state.fileInfo = null;
@@ -96,6 +109,9 @@ export const appSlice = createSlice({
       state.lidarMapTopics = [];
       state.annotationTopics = [];
       state.egoPoseTopic = null;
+      state.velocityTopic = null;
+      state.accelerationTopic = null;
+      state.telemetry = null;
     },
     setIsPlaying: (state, action: PayloadAction<boolean>) => {
       state.isPlaying = action.payload;
@@ -125,6 +141,9 @@ export const {
   setLidarTopics,
   setAnnotationTopics,
   setEgoPoseTopic,
+  setVelocityTopic,
+  setAccelerationTopic,
+  setTelemetry,
   clearFile,
   setIsPlaying,
   setPlaybackSpeed,

@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import {
   clearFile,
+  setAccelerationTopic,
+  setAnnotationTopics,
   setCameraTopics,
   setCurrentFile,
   setCurrentTimestamp,
@@ -12,11 +14,13 @@ import {
   setLoadError,
   setLoadStatus,
   setPlayerReady,
+  setTelemetry,
   setTimeRange,
   setTopics,
+  setVelocityTopic,
   setVisibleCameras,
-  setAnnotationTopics,
 } from '../store/appStore';
+import type { TelemetryData } from '../types';
 import { useMcapWorker } from './useMcapWorker';
 import { clearMcapSession, loadMcapFile } from '../utils/mcap';
 
@@ -32,11 +36,11 @@ function isCameraTopic(schemaName: string, topic: string): boolean {
 /**
  * Loads an MCAP file (selected by the user) into the app: parses the index on
  * the main thread for the sidebar, then hands the File to the decoding worker
- * and sets up the player state (time range, camera topics, grid).
+ * and sets up the player state (time range, camera topics, grid, telemetry).
  */
 export function useMcapReader() {
   const dispatch = useDispatch();
-  const { initWorker, closeWorker } = useMcapWorker();
+  const { initWorker, closeWorker, readTelemetry } = useMcapWorker();
 
   const loadFile = useCallback(
     async (file: File) => {
@@ -66,11 +70,17 @@ export function useMcapReader() {
             topics.filter((t) => t.schemaName === 'foxglove.SceneUpdate').map((t) => t.topic),
           ),
         );
-        dispatch(
-          setEgoPoseTopic(
-            topics.find((t) => t.schemaName === 'foxglove.Pose' && /ego/.test(t.topic))?.topic ?? null,
-          ),
-        );
+        const egoPoseTopic =
+          topics.find((t) => t.schemaName === 'foxglove.Pose' && /ego/.test(t.topic))?.topic ?? null;
+        dispatch(setEgoPoseTopic(egoPoseTopic));
+
+        // Telemetry: std_msgs/Float64 topics named velocity/acceleration.
+        const velocityTopic =
+          topics.find((t) => t.schemaName === 'std_msgs/Float64' && /velocity/.test(t.topic))?.topic ?? null;
+        const accelerationTopic =
+          topics.find((t) => t.schemaName === 'std_msgs/Float64' && /acceleration/.test(t.topic))?.topic ?? null;
+        dispatch(setVelocityTopic(velocityTopic));
+        dispatch(setAccelerationTopic(accelerationTopic));
 
         dispatch(setTimeRange({ start: info.startTime, end: info.endTime }));
         // Start playback at the beginning of the recording — timestamps are
@@ -84,6 +94,31 @@ export function useMcapReader() {
         try {
           await initWorker(file);
           dispatch(setPlayerReady(true));
+
+          // Telemetry series (velocity/acceleration/pose) — small, read once.
+          try {
+            const result = await readTelemetry({
+              velocityTopic,
+              accelerationTopic,
+              poseTopic: egoPoseTopic,
+              originNs: info.startTime,
+            });
+            const toArr = (fa: Float64Array | null): number[] | null => (fa ? Array.from(fa) : null);
+            const telemetry: TelemetryData = {
+              velocity: result.velocity
+                ? { t: toArr(result.velocity.t)!, v: toArr(result.velocity.v)! }
+                : null,
+              acceleration: result.acceleration
+                ? { t: toArr(result.acceleration.t)!, v: toArr(result.acceleration.v)! }
+                : null,
+              pose: result.pose
+                ? { t: toArr(result.pose.t)!, x: toArr(result.pose.x)!, y: toArr(result.pose.y)!, yaw: toArr(result.pose.yaw)! }
+                : null,
+            };
+            dispatch(setTelemetry(telemetry));
+          } catch (error) {
+            console.warn('telemetry load failed:', error);
+          }
         } catch (error) {
           dispatch(setPlayerReady(false));
           console.warn('MCAP worker init failed:', error);
@@ -97,7 +132,7 @@ export function useMcapReader() {
         dispatch(setLoadStatus('error'));
       }
     },
-    [dispatch, initWorker],
+    [dispatch, initWorker, readTelemetry],
   );
 
   const closeFile = useCallback(() => {

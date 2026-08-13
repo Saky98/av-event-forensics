@@ -1,0 +1,67 @@
+.telemetry-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border, #2a3b4d);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d1117;
+}
+
+.telemetry-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--panel-bg, #10161f);
+  border-bottom: 1px solid var(--border, #2a3b4d);
+}
+
+.telemetry-title {
+  font-weight: 600;
+  color: var(--text-h, #e6edf3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 13px;
+}
+
+.telemetry-hint {
+  margin-left: auto;
+  color: #6b7a8a;
+  font-size: 12px;
+}
+
+.telemetry-plot {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.telemetry-plot .uplot {
+  max-width: 100%;
+}
+
+/* Timeline cursor overlay (child of uPlot's .u-over). */
+.telemetry-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: #e6edf3;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Drag-to-zoom selection box color (uPlot option has no color in types). */
+.u-select {
+  background: rgba(77, 166, 255, 0.18);
+}
+
+.telemetry-empty {
+  padding: 24px;
+  color: #8b9aab;
+  font-size: 13px;
+}

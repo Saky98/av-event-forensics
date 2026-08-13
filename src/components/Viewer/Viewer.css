@@ -52,7 +52,8 @@
 }
 
 /* Fill the remaining vertical space below the header. */
-.viewer-container > .lidar-view {
+.viewer-container > .lidar-view,
+.viewer-container > .telemetry-panel {
   flex: 1;
   min-height: 0;
 }

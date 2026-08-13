@@ -104,6 +104,17 @@ export interface ReadPoseResult {
   pose: { position: number[]; orientation: number[] } | null;
 }
 
+export interface TelemetrySeries {
+  t: Float64Array;
+  v: Float64Array;
+}
+
+export interface TelemetryResult {
+  velocity: TelemetrySeries | null;
+  acceleration: TelemetrySeries | null;
+  pose: { t: Float64Array; x: Float64Array; y: Float64Array; yaw: Float64Array } | null;
+}
+
 export function useMcapWorker() {
   const initWorker = useCallback(async (file: File): Promise<void> => {
     await request('init', { file });
@@ -161,5 +172,18 @@ export function useMcapWorker() {
     [],
   );
 
-  return { initWorker, readImage, readLidarPoints, readSceneEntities, readPose, closeWorker };
+  const readTelemetry = useCallback(
+    async (payload: {
+      velocityTopic?: string | null;
+      accelerationTopic?: string | null;
+      poseTopic?: string | null;
+      originNs: bigint;
+    }): Promise<TelemetryResult> => {
+      const result = await request('readTelemetry', payload);
+      return result as TelemetryResult;
+    },
+    [],
+  );
+
+  return { initWorker, readImage, readLidarPoints, readSceneEntities, readPose, readTelemetry, closeWorker };
 }

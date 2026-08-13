@@ -112,7 +112,15 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Add a vertical cursor that follows the current timestamp (synced with the timeline).
 - Allow clicking the chart to move the timeline.
 
-**Status:** ⏳ Not started
+**Status:** ✅ Done — verified live in headless Chromium (4 series, cursor follows play, click-to-seek works). Details:
+- Worker `readTelemetry`: reads `/ego/velocity` + `/ego/acceleration` (std_msgs/Float64 JSON) and `/ego/pose` (flatbuffer → x/y/yaw) once, returns relative-seconds Float64Array series.
+- Store: `velocityTopic`/`accelerationTopic` detection (schema `std_msgs/Float64` + topic name), `telemetry` data (plain number[]); loaded in `useMcapReader` after worker init.
+- `src/components/TelemetryPanel/TelemetryPanel.tsx` + CSS: uPlot (velocity + acceleration on left scale, heading ° on right scale), vertical timeline cursor (overlay div — uPlot's own `valToPos` is NaN until first draw, so position is computed from data/scale bounds + `bbox.width`), click-to-seek (`posToVal` → `setCurrentTimestamp`), drag-to-zoom + double-click reset, ResizeObserver.
+- Viewer: third tab **Telemetry** (shown when velocity/acceleration/pose topics exist).
+- Layout fix: `.viewer-area` got `min-height: 0; overflow: hidden` — uPlot's explicit px height previously inflated the grid row to ~3000px and destabilized the Play button.
+- uPlot 1.6.32 gotchas: `series.value` must be a function (format strings crash with "s.value is not a function"); `scales.x.range: [0, null]` does not auto-resolve the max; `select`/`cursor` styling via CSS.
+- Data facts (`Town02_with_map.mcap`): velocity 0–17.4 m/s, acceleration −61.4…+11.1 m/s² (collision spike), ego x −3.6 → −17.0 m (last sample jumps back — data quirk), yaw ≈ 0 (straight driving); `Town02_truck_collision.mcap` additionally has `/collision/detected` (bool) and `/events/sudden_braking` (JSON event).
+- Tests: `scripts/smoke-telemetry.mjs` (JSON parse, ranges, yaw, excursion, event topics, both files), `scripts/verify-telemetry.mjs` (headless Chromium E2E).
 
 ---
 
@@ -128,7 +136,7 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 ---
 
 ## Current Phase
-**Phase 4: LiDAR 3D Point Cloud** — ✅ done (headless Chromium verified: WebGL scene, 39 408 pts/sweep decimated, 1 776 183-pt background map, 23 annotation boxes, ego marker, play/scrub sync). **Next: Phase 5 — Telemetry & Charts** (uPlot; `/ego/vehicle_info`, `/ego/acceleration` or similar numeric topics — check actual topic list in `storage/Town02_with_map.mcap`; vertical cursor synced to timeline, click-to-seek). Also open: Phase 3 polish (full-res on click, per-camera toggles) and Phase 4 polish (lazy-load three.js chunk, camera-follow ego, ego trajectory).
+**Phase 5: Telemetry & Charts** — ✅ done (headless Chromium verified: uPlot with velocity/acceleration/heading, cursor follows play, click-to-seek, zoom). **Next: Phase 6 — Forensic Validation & Hashing** (SHA-256 of the raw file, provenance topic, per-event hash chain, green/red integrity UI). Also open polish: Phase 3 (full-res on click, per-camera toggles), Phase 4 (lazy-load three.js chunk, camera-follow ego, ego trajectory), Phase 5 (event markers for collision/braking on the chart).
 *(Update this line as we progress)*
 
 ## Git Workflow (from Phase 4 onward)
@@ -139,6 +147,16 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - Large data (`storage/`) and build artifacts stay gitignored.
 
 ---
+
+## Session Log — 13.08.2026 (Phase 5)
+
+### Phase 5 — Telemetry & Charts (done, verified)
+1. Merged Phase 4 into `main` (fast-forward), tagged `phase-4-lidar-3d`, created `phase/5-telemetry-charts`.
+2. Installed `uplot`; confirmed `/ego/velocity` + `/ego/acceleration` are `std_msgs/Float64` JSON (`{"data": n}`, 45 msgs).
+3. Worker `readTelemetry` + hook client + store (`velocityTopic`/`accelerationTopic`/`telemetry`) + detection in `useMcapReader`.
+4. `TelemetryPanel` (uPlot, 3 series, timeline cursor overlay, click-to-seek, drag-zoom, dblclick reset) + Telemetry tab in Viewer.
+5. Fixed during browser verification: `.viewer-area` min-height (layout explosion to ~3000px), uPlot `series.value` format-string crash, `range:[0,null]` auto-scale, cursor `valToPos` NaN before first draw.
+6. Tests: `smoke-telemetry.mjs` (both real files), `verify-telemetry.mjs` (headless Chromium: chart, cursor move, click-to-seek); all prior smoke tests still pass; LiDAR view unaffected.
 
 ## Session Log — 13.08.2026 (Phase 4)
 

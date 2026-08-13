@@ -2,7 +2,7 @@
 
 A self-hosted web forensic tool for analyzing MCAP recordings from autonomous driving datasets — fully local, nothing is uploaded to a server.
 
-> ⚠️ **Work in progress** — Phases 1–4 are complete (scaffold & architecture, file manager & MCAP loading, multi-camera player, LiDAR 3D visualization). Next up: **Phase 5 — Telemetry Charts**. See [HANDOFF.md](./HANDOFF.md) for the detailed roadmap and session log.
+> ⚠️ **Work in progress** — Phases 1–5 are complete (scaffold & architecture, file manager & MCAP loading, multi-camera player, LiDAR 3D visualization, telemetry charts). Next up: **Phase 6 — Forensic Validation & Hashing**. See [HANDOFF.md](./HANDOFF.md) for the detailed roadmap and session log.
 
 ## What it does
 
@@ -36,8 +36,8 @@ Each phase is developed on its own git branch and merged into `main` via a **mer
 | 2 | File Manager & MCAP Loading | `phase/2-file-manager-mcap` | ✅ Done |
 | 3 | Multi-Camera Player | `phase/3-multi-camera-player` | ✅ Done |
 | 4 | LiDAR 3D Visualization | `phase/4-lidar-3d` | ✅ Done |
-| 5 | Telemetry Charts | `phase/5-telemetry-charts` | 🚧 Next |
-| 6 | Forensic Validation & Hashing | `phase/6-forensic-validation` | ⏳ Planned |
+| 5 | Telemetry Charts | `phase/5-telemetry-charts` | ✅ Done |
+| 6 | Forensic Validation & Hashing | `phase/6-forensic-validation` | 🚧 Next |
 
 > **Note:** Phases 1–3 were built directly on `main` and snapshotted together in a single commit (tag `phases-1-3-baseline`). From Phase 4 onward, work happens on a dedicated phase branch.
 
