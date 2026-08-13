@@ -155,6 +155,13 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 
 ---
 
+## Session Log — 13.08.2026 (final merge — all phases closed)
+
+- Merged Phase 6 into `main` (fast-forward), tagged `phase-6-forensic-validation` → **all 6 phases merged and tagged**.
+- Forensic polish (per user feedback): emoji flags → text chips (`col` / `brk`) with legend + header row; "Verify chain" now re-checks the displayed chain against the authentic chain (recomputed from source data) and always shows a result message (intact / divergence at link N).
+- Tags on main: `phases-1-3-baseline`, `phase-4-lidar-3d`, `phase-5-telemetry-charts`, `phase-6-forensic-validation`.
+- Next work will be improvements/polish (see backlog under "Current Phase"); per the git workflow, each goes on its own branch (`phase/<n>-<name>-polish`, `fix/…`, `chore/…`) merged via MR.
+
 ## Session Log — 13.08.2026 (Phase 6)
 
 ### Phase 6 — Forensic Validation & Hashing (done, verified)
