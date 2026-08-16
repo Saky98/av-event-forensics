@@ -24,7 +24,5 @@ button:hover {
   background: #4d4d4d;
 }
 
-input[type="range"] {
-  width: 100px;
-  margin: 0 10px;
-}
+/* Range inputs get their own sizing per component (timeline scrubber is a
+   full-width bar; the speed slider is fixed-width). No generic width here. */

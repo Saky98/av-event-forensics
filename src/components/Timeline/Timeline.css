@@ -1,16 +1,102 @@
 .timeline-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   height: 100%;
-  justify-content: center;
+  min-height: 0;
 }
 
+/* Full-width thin progress bar (modern player look).
+   The visual bar + fill are plain divs; the native range input sits on top
+   fully transparent and drives interaction (works across all browsers). */
+.timeline-track {
+  position: relative;
+  width: 100%;
+  height: 16px; /* comfortable click/drag area */
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+/* Base bar. */
+.timeline-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 5px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: #2a2f3a;
+}
+
+/* Filled portion up to the current position (--pct set from React). */
+.timeline-track-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 5px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  width: var(--pct, 0%);
+  background: linear-gradient(to right, var(--accent, #4f7fd0), #7aa7e8);
+  pointer-events: none;
+}
+
+/* Thumb dot — visible on hover / while dragging / when focused. */
+.timeline-track-fill::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #9fd0ff;
+  border: 2px solid #4f7fd0;
+  box-shadow: 0 0 4px rgba(79, 127, 208, 0.5);
+  display: none;
+}
+
+.timeline-track:hover .timeline-track-fill::after,
+.timeline-track:active .timeline-track-fill::after,
+.timeline-track:focus-within .timeline-track-fill::after {
+  display: block;
+}
+
+.timeline-track.disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Native range input: invisible overlay that handles click/drag/keyboard. */
+.timeline-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.timeline-scrubber:disabled {
+  cursor: default;
+}
+
+.timeline-scrubber:focus {
+  outline: none;
+}
+
+/* Controls row under the bar. */
 .timeline-controls {
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  padding: 6px 14px 10px;
 }
 
 .timeline-speed {
@@ -23,6 +109,7 @@
 
 .timeline-speed input[type='range'] {
   width: 120px;
+  margin: 0 10px;
 }
 
 .timeline-time {
@@ -34,20 +121,4 @@
 .timeline-frame {
   font-size: 12px;
   color: #999;
-}
-
-.timeline-track {
-  width: 100%;
-}
-
-.timeline-scrubber {
-  width: 100%;
-  height: 22px;
-  accent-color: #4f7fd0;
-  cursor: pointer;
-}
-
-.timeline-scrubber:disabled {
-  cursor: default;
-  opacity: 0.4;
 }

@@ -47,9 +47,26 @@ const Timeline: React.FC = () => {
   };
 
   const hasFile = timeRange !== null;
+  // Progress fill for the thin full-width bar (modern player look).
+  const progressPct = hasFile && totalFrames > 0 ? (clampedFrame / totalFrames) * 100 : 0;
+  const trackStyle = { '--pct': `${progressPct}%` } as React.CSSProperties;
 
   return (
     <div className="timeline-container">
+      <div className={hasFile ? 'timeline-track' : 'timeline-track disabled'} style={trackStyle}>
+        <div className="timeline-track-fill" />
+        <input
+          type="range"
+          className="timeline-scrubber"
+          min={0}
+          max={Math.max(totalFrames, 0)}
+          step={1}
+          value={clampedFrame}
+          onChange={handleSeek}
+          disabled={!hasFile}
+          aria-label="Seek timeline"
+        />
+      </div>
       <div className="timeline-controls">
         <button
           onClick={() => dispatch(setIsPlaying(!isPlaying))}
@@ -77,19 +94,6 @@ const Timeline: React.FC = () => {
         <span className="timeline-frame">
           {hasFile ? `frame ${clampedFrame + 1} / ${totalFrames + 1}` : 'no file'}
         </span>
-      </div>
-      <div className="timeline-track">
-        <input
-          type="range"
-          className="timeline-scrubber"
-          min={0}
-          max={Math.max(totalFrames, 0)}
-          step={1}
-          value={clampedFrame}
-          onChange={handleSeek}
-          disabled={!hasFile}
-          aria-label="Seek timeline"
-        />
       </div>
     </div>
   );

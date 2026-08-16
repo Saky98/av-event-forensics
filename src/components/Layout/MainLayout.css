@@ -25,5 +25,7 @@
 
 .timeline-area {
   background: #2d2d2d;
-  padding: 12px;
+  /* No padding: the progress bar bleeds edge-to-edge (modern player look);
+     the controls row inside the timeline provides its own spacing. */
+  padding: 0;
 }

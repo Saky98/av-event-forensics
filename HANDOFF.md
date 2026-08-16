@@ -155,6 +155,20 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 
 ---
 
+## Session Log — 13.08.2026 (polish: modern timeline bar)
+
+- Timeline track redesigned to a modern full-width progress bar: thin 5px bar
+  spanning the whole footer edge-to-edge (`.timeline-area` padding removed),
+  accent fill up to the current position (CSS var `--pct`), thumb dot on
+  hover/drag/focus. The native range input is an invisible overlay driving
+  interaction — avoids cross-browser `::-webkit-slider-*` inconsistencies
+  (headless Chromium ignored those pseudo-element rules entirely).
+- Root cause of earlier sizing bug: `src/index.css` had a generic
+  `input[type="range"] { width: 100px; margin: 0 10px }` that out-specified the
+  component class; removed it, sliders size themselves now.
+- Verified headless: bar edge-to-edge, fill grows during play, click-middle
+  seeks to ~50%, blue fill + grey base visible in pixels.
+
 ## Session Log — 13.08.2026 (final merge — all phases closed)
 
 - Merged Phase 6 into `main` (fast-forward), tagged `phase-6-forensic-validation` → **all 6 phases merged and tagged**.
