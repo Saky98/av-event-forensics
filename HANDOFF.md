@@ -155,6 +155,16 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 
 ---
 
+## Session Log — 13.08.2026 (polish: camera grid layout)
+
+- 6-camera grid now uses a spatial surround layout (was alphabetical):
+  `[Front Left | Front | Front Right]` / `[Back Left | Back | Back Right]`
+  (front center top, back center bottom, left/right cameras on their sides).
+- `CameraGrid.orderedCameras()`: 6-grid = spatial order; 4-grid = the four
+  surround corners (front/back left+right); 1-grid = front camera.
+- Labels improved: `/camera_front_left/...` -> "Front Left" (no underscore).
+- Verified headless: all three layouts in the expected DOM order.
+
 ## Session Log — 13.08.2026 (polish: modern timeline bar)
 
 - Timeline track redesigned to a modern full-width progress bar: thin 5px bar

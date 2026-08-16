@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setGridLayout } from '../../store/appStore';
+import type { GridLayout } from '../../types';
 import { useMcapWorker } from '../../hooks/useMcapWorker';
 import { formatRelativeTime } from '../../utils/mcap';
 import './CameraGrid.css';
@@ -22,14 +23,46 @@ const EMPTY_SLOT: CameraSlot = {
   error: null,
 };
 
-/** Short human label from a topic like /camera_front/image/compressed -> Front */
+/** Short human label: /camera_front_left/image/compressed -> "Front Left". */
 function shortLabel(topic: string): string {
   const match = topic.match(/camera_([^/]+)/);
   if (!match) {
     return topic;
   }
-  const name = match[1];
-  return name.charAt(0).toUpperCase() + name.slice(1);
+  return match[1]
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/** Spatial order for the surround grid (row-major: top-left -> bottom-right). */
+const CAMERA_GRID_ORDER = ['front_left', 'front', 'front_right', 'back_left', 'back', 'back_right'];
+
+function cameraName(topic: string): string {
+  const match = topic.match(/camera_([^/]+)/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+/** Slot rank (0 = top-left in the 6-grid); unknown cameras go last, stable. */
+function cameraSlotRank(topic: string): number {
+  const idx = CAMERA_GRID_ORDER.indexOf(cameraName(topic));
+  return idx === -1 ? CAMERA_GRID_ORDER.length : idx;
+}
+
+/** Sorts the selected cameras into the spatial surround layout. */
+function orderedCameras(cameras: string[], layout: GridLayout): string[] {
+  const sorted = [...cameras].sort((a, b) => cameraSlotRank(a) - cameraSlotRank(b));
+  if (layout === '1') {
+    // One camera: prefer the front view.
+    const front = sorted.find((t) => cameraName(t) === 'front');
+    return front ? [front] : sorted.slice(0, 1);
+  }
+  if (layout === '4') {
+    // Four cameras: the surround corners (front/back left + right).
+    const corners = sorted.filter((t) => cameraName(t) !== 'front' && cameraName(t) !== 'back');
+    return corners.length >= 4 ? corners.slice(0, 4) : sorted.slice(0, 4);
+  }
+  return sorted.slice(0, 6);
 }
 
 const CameraGrid: React.FC = () => {
@@ -115,7 +148,7 @@ const CameraGrid: React.FC = () => {
     dispatch(setGridLayout(layout));
   };
 
-  const shown = gridLayout === '1' ? visibleCameras.slice(0, 1) : gridLayout === '4' ? visibleCameras.slice(0, 4) : visibleCameras.slice(0, 6);
+  const shown = orderedCameras(visibleCameras, gridLayout);
 
   return (
     <div className="camera-grid">
