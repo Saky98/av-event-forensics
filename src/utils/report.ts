@@ -194,18 +194,6 @@ export function buildHtmlReport(data: ReportData): string {
 <body>
   <h1>Forensic Integrity Report</h1>
   <p class="meta">Generated ${esc(new Date().toISOString())}</p>
-  <h2>Live Snapshot</h2>
-  <dl class="grid">
-    <div class="field"><dt>Relative time</dt><dd>${esc(data.snapshotAt)}</dd></div>
-    <div class="field"><dt>Frame</dt><dd>${frameText}</dd></div>
-    <div class="field"><dt>Velocity</dt><dd>${velText}</dd></div>
-    <div class="field"><dt>Acceleration</dt><dd>${accText}</dd></div>
-    <div class="field"><dt>Events</dt><dd>${eventsHtml}</dd></div>
-  </dl>
-  <h3>Cameras</h3>
-  ${camerasHtml}
-  <h3>LiDAR</h3>
-  ${lidarHtml}
   <h2>File</h2>
   <dl class="grid">
     <div class="field"><dt>File</dt><dd>${esc(data.fileName)}</dd></div>
@@ -224,6 +212,18 @@ export function buildHtmlReport(data: ReportData): string {
     <thead><tr><th>#</th><th>time</th><th>expected hash</th><th>current hash</th><th></th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>
+  <h2>Live Snapshot</h2>
+  <dl class="grid">
+    <div class="field"><dt>Relative time</dt><dd>${esc(data.snapshotAt)}</dd></div>
+    <div class="field"><dt>Frame</dt><dd>${frameText}</dd></div>
+    <div class="field"><dt>Velocity</dt><dd>${velText}</dd></div>
+    <div class="field"><dt>Acceleration</dt><dd>${accText}</dd></div>
+    <div class="field"><dt>Events</dt><dd>${eventsHtml}</dd></div>
+  </dl>
+  <h3>Cameras</h3>
+  ${camerasHtml}
+  <h3>LiDAR</h3>
+  ${lidarHtml}
 </body>
 </html>`;
 }
