@@ -59,8 +59,10 @@ const ForensicPanel: React.FC = () => {
       setAuthenticChain(chain);
       setDisplayedChain(chain);
       setTamperedFrame(null);
-      setChainCheck({ firstDivergence: -1, intact: true });
-      setVerifyMsg(`Authentic chain built from source data: ${chain.length} links.`);
+      // Neutral until the user presses "Verify chain" — dots stay grey, then
+      // turn green (ok) or red (bad) according to the check result.
+      setChainCheck(null);
+      setVerifyMsg(`Authentic chain built from source data: ${chain.length} links. Press "Verify chain" to check it.`);
     });
     return () => {
       cancelled = true;
@@ -104,7 +106,7 @@ const ForensicPanel: React.FC = () => {
   const resetChain = useCallback(() => {
     setDisplayedChain(authenticChain);
     setTamperedFrame(null);
-    setChainCheck(authenticChain ? { firstDivergence: -1, intact: true } : null);
+    setChainCheck(null);
     setVerifyMsg(null);
   }, [authenticChain]);
 
@@ -252,6 +254,14 @@ const ForensicPanel: React.FC = () => {
               </div>
               {displayedChain?.map((link) => {
                 const isTampered = tamperedFrame !== null && link.index >= tamperedFrame;
+                // All links turn green after a successful Verify (no tamper), so the
+                // whole chain is clearly shown as intact.
+                const allOk = chainCheck?.intact === true && tamperedFrame === null;
+                const dotClass = isTampered
+                  ? 'bad'
+                  : allOk || (tamperedFrame !== null && link.index < tamperedFrame)
+                    ? 'ok'
+                    : '';
                 const r = link.record;
                 return (
                   <div
@@ -262,19 +272,13 @@ const ForensicPanel: React.FC = () => {
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
                     <span
-                      className={`forensic-link-dot ${
-                        tamperedFrame !== null && link.index < tamperedFrame
-                          ? 'ok'
-                          : isTampered
-                            ? 'bad'
-                            : ''
-                      }`}
+                      className={`forensic-link-dot ${dotClass}`}
                       title={
-                        tamperedFrame !== null && link.index < tamperedFrame
-                          ? 'intact (before tamper point)'
-                          : isTampered
+                        dotClass === 'ok'
+                          ? 'intact'
+                          : dotClass === 'bad'
                             ? 'broken — hash diverges from authentic chain'
-                            : 'intact'
+                            : 'not yet verified'
                       }
                     />
                   </div>
