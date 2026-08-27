@@ -46,7 +46,8 @@ const ForensicPanel: React.FC = () => {
   const tamperFrameInputTouched = useRef(false);
   const setDefaultTamperFrame = (chainLength: number) => {
     if (!tamperFrameInputTouched.current) {
-      setTamperFrameInput(String(Math.floor(chainLength / 2)));
+      // 1-based display (middle frame), consistent with the chain table.
+      setTamperFrameInput(String(Math.floor(chainLength / 2) + 1));
     }
   };
 
@@ -98,11 +99,13 @@ const ForensicPanel: React.FC = () => {
     if (!authenticChain || authenticChain.length === 0) {
       return;
     }
-    // Parse and clamp the chosen frame to a valid index.
+    // Parse and clamp the chosen frame (1-based in the UI) to a valid index,
+    // then convert to the 0-based internal array index.
     const parsed = Number(tamperFrameInput);
-    const frame = Number.isInteger(parsed)
-      ? Math.min(Math.max(parsed, 0), authenticChain.length - 1)
-      : Math.floor(authenticChain.length / 2);
+    const userFrame = Number.isInteger(parsed)
+      ? Math.min(Math.max(parsed, 1), authenticChain.length)
+      : Math.floor(authenticChain.length / 2) + 1;
+    const frame = userFrame - 1;
     // Alter a copy of one record (velocity ×1.3) and recompute the chain.
     const records = authenticChain.map((link) => ({ ...link.record }));
     const rec = records[frame];
@@ -112,7 +115,7 @@ const ForensicPanel: React.FC = () => {
     setTamperedFrame(frame);
     setChainCheck({ firstDivergence: frame, intact: false });
     setVerifyMsg(
-      `Tampered frame ${frame} (velocity ×1.3): links ${frame}..${authenticChain.length - 1} no longer match the source chain.`,
+      `Tampered frame ${userFrame} (velocity ×1.3): links ${userFrame}..${authenticChain.length} no longer match the source chain.`,
     );
   }, [authenticChain, tamperFrameInput]);
 
@@ -254,8 +257,8 @@ const ForensicPanel: React.FC = () => {
                 <input
                   className="forensic-frame-input"
                   type="number"
-                  min={0}
-                  max={authenticChain.length - 1}
+                  min={1}
+                  max={authenticChain.length}
                   step={1}
                   value={tamperFrameInput}
                   onChange={(e) => {
@@ -310,7 +313,7 @@ const ForensicPanel: React.FC = () => {
                             : 'not yet verified'
                       }
                     />
-                    <span className="forensic-link-frame">{link.index}</span>
+                    <span className="forensic-link-frame">{link.index + 1}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
                     <code className="forensic-link-hash" title={link.hash}>{link.hash}</code>
                   </div>
