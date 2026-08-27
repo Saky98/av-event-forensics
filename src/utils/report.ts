@@ -189,6 +189,7 @@ export function buildHtmlReport(data: ReportData): string {
   .cam img { width: 100%; display: block; border-radius: 4px; }
   .cam figcaption { font-size: 11px; color: #8b9aab; margin-top: 4px; }
   .lidar-img { width: 100%; border-radius: 6px; border: 1px solid #1b2633; }
+  .chain-scroll { max-height: 340px; overflow-y: auto; border: 1px solid #1b2633; border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -208,10 +209,12 @@ export function buildHtmlReport(data: ReportData): string {
   <h2>Frame Hash Chain</h2>
   <p>Status: ${chainStatus}</p>
   ${firstDivergenceNote}
+  <div class="chain-scroll">
   <table>
     <thead><tr><th>#</th><th>time</th><th>expected hash</th><th>current hash</th><th></th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>
+  </div>
   <h2>Live Snapshot</h2>
   <dl class="grid">
     <div class="field"><dt>Relative time</dt><dd>${esc(data.snapshotAt)}</dd></div>
