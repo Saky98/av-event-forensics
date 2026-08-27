@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { SceneEntity } from '../hooks/useMcapWorker';
 import { transformPositions } from './coordinates';
 import { buildMapMesh, buildSweepMesh, rebuildBoxes, updateEgoMarker } from './lidarScene';
+import { getLidarViewState } from './lidarViewState';
 
 export interface SnapshotWorker {
   readImage: (
@@ -98,7 +99,10 @@ export async function captureLidar(
     scene.background = new THREE.Color(0x0d1117);
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
-    camera.position.set(45, 42, 65);
+    // Reuse the operator's framing from the LiDAR tab if available.
+    const view = getLidarViewState();
+    camera.position.set(view.position[0], view.position[1], view.position[2]);
+    camera.lookAt(view.target[0], view.target[1], view.target[2]);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(1);

@@ -6,6 +6,7 @@ import { RootState } from '../../store';
 import { useMcapWorker } from '../../hooks/useMcapWorker';
 import { transformPositions } from '../../utils/coordinates';
 import { buildMapMesh, buildSweepMesh, clearGroup, disposeObject, rebuildBoxes, updateEgoMarker } from '../../utils/lidarScene';
+import { setLidarViewState } from '../../utils/lidarViewState';
 import './LidarView.css';
 
 /**
@@ -87,6 +88,11 @@ function initScene(container: HTMLDivElement): SceneData {
   function render(): void {
     controls.update();
     renderer.render(scene, camera);
+    // Share the operator's framing so the export snapshot can reuse it.
+    setLidarViewState(
+      [camera.position.x, camera.position.y, camera.position.z],
+      [controls.target.x, controls.target.y, controls.target.z],
+    );
     rafId = requestAnimationFrame(render);
   }
   let rafId = requestAnimationFrame(render);
