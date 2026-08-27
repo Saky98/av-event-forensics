@@ -278,10 +278,10 @@ const ForensicPanel: React.FC = () => {
             )}
             <div className="forensic-chain">
               <div className="forensic-link forensic-link-header">
+                <span className="forensic-link-dot" />
                 <span className="forensic-link-frame">#</span>
                 <span className="forensic-link-t">time</span>
                 <span className="forensic-link-hash">sha-256</span>
-                <span className="forensic-link-dot" />
               </div>
               {displayedChain?.map((link) => {
                 const isTampered = tamperedFrame !== null && link.index >= tamperedFrame;
@@ -300,9 +300,6 @@ const ForensicPanel: React.FC = () => {
                     className={`forensic-link ${isTampered ? 'tampered' : ''}`}
                     title={isTampered ? `link ${link.index}: hash breaks the chain` : link.hash}
                   >
-                    <span className="forensic-link-frame">{link.index}</span>
-                    <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
-                    <code className="forensic-link-hash" title={link.hash}>{link.hash}</code>
                     <span
                       className={`forensic-link-dot ${dotClass}`}
                       title={
@@ -313,6 +310,9 @@ const ForensicPanel: React.FC = () => {
                             : 'not yet verified'
                       }
                     />
+                    <span className="forensic-link-frame">{link.index}</span>
+                    <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
+                    <code className="forensic-link-hash" title={link.hash}>{link.hash}</code>
                   </div>
                 );
               })}

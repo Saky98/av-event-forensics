@@ -234,7 +234,7 @@
 
 .forensic-link {
   display: grid;
-  grid-template-columns: 34px 52px 1fr 14px;
+  grid-template-columns: 14px 34px 52px 1fr;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
