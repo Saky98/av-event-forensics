@@ -348,14 +348,26 @@ const ForensicPanel: React.FC = () => {
               </div>
               {displayedChain?.map((link) => {
                 const isTampered = tamperedFrame !== null && link.index >= tamperedFrame;
-                // All links turn green after a successful Verify (no tamper), so the
-                // whole chain is clearly shown as intact.
-                const allOk = chainCheck?.intact === true && tamperedFrame === null;
-                const dotClass = isTampered
-                  ? 'bad'
-                  : allOk || (tamperedFrame !== null && link.index < tamperedFrame)
+                // Status dot: during an active tamper simulation the local
+                // tamper state wins; otherwise it follows the baseline
+                // comparison (compromised copy shows red from the first
+                // divergent frame), falling back to the local verify state.
+                let dotClass: string;
+                if (tamperedFrame !== null) {
+                  dotClass = isTampered
+                    ? 'bad'
+                    : link.index < tamperedFrame
+                      ? 'ok'
+                      : '';
+                } else if (chainBaselineStatus) {
+                  dotClass = chainBaselineStatus.intact
                     ? 'ok'
-                    : '';
+                    : link.index >= chainBaselineStatus.firstDivergence
+                      ? 'bad'
+                      : 'ok';
+                } else {
+                  dotClass = chainCheck?.intact === true ? 'ok' : '';
+                }
                 // Expected (baseline) hash for this frame vs the currently computed one.
                 const expectedChainHash = integrity?.baselineFrameChain?.[link.index];
                 const hashDiffers = expectedChainHash != null && expectedChainHash !== link.hash;
