@@ -315,6 +315,13 @@
   background: rgba(255, 107, 107, 0.06);
 }
 
+.forensic-export {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .forensic-verify-msg {
   margin: 6px 0 8px;
   padding: 6px 10px;

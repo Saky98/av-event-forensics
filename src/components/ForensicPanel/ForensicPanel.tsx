@@ -9,6 +9,7 @@ import {
   type ChainCheck,
   type ChainLink,
 } from '../../utils/forensics';
+import { downloadHtmlReport, type ReportData } from '../../utils/report';
 import './ForensicPanel.css';
 
 /**
@@ -27,7 +28,7 @@ import './ForensicPanel.css';
  */
 
 const ForensicPanel: React.FC = () => {
-  const { fileInfo, fileHash, expectedHash, telemetry, events, integrity } = useSelector(
+  const { fileInfo, currentFile, fileHash, expectedHash, telemetry, events, integrity } = useSelector(
     (state: RootState) => state.app,
   );
 
@@ -169,6 +170,60 @@ const ForensicPanel: React.FC = () => {
     }
     return { intact: firstDivergence === -1, firstDivergence };
   }, [integrity, authenticChain]);
+
+  // Builds and downloads the self-contained HTML report.
+  const handleExport = useCallback(() => {
+    const computedHash = fileHash ?? '';
+    const expected = expectedHash ?? '';
+    const hashMatches =
+      computedHash && expected && expected.trim().length === 64 ? computedHash === expected.trim().toLowerCase() : null;
+
+    const rowsSource = displayedChain ?? authenticChain ?? [];
+    const rows: ReportData['chain']['rows'] = rowsSource.map((link) => {
+      const expectedChain = integrity?.baselineFrameChain?.[link.index];
+      const current = link.hash;
+      return {
+        frame: link.index + 1,
+        timeSec: link.record.t.toFixed(2),
+        expectedHash: expectedChain ?? undefined,
+        currentHash: current,
+        matches: expectedChain === undefined ? true : expectedChain === current,
+      };
+    });
+
+    const chainStatus: ReportData['chain']['status'] = chainBaselineStatus
+      ? chainBaselineStatus.intact
+        ? 'intact'
+        : 'modified'
+      : 'unknown';
+
+    const data: ReportData = {
+      fileName: fileInfo?.name ?? currentFile?.name ?? 'file',
+      library: fileInfo?.library ?? '—',
+      sizeBytes: fileInfo?.size ?? 0,
+      channels: fileInfo?.channelCount ?? 0,
+      schemas: fileInfo?.schemaCount ?? 0,
+      messages: fileInfo?.messageCount ?? 0,
+      compression: fileInfo?.compressionFormats.join(', ') ?? '',
+      computedHash,
+      expectedHash: expected,
+      hashMatches,
+      baseline: {
+        hasSnapshot: integrity ? !integrity.noSnapshot : false,
+        intact: integrity ? integrity.intact : false,
+        snapshotShort: integrity?.snapshotShort,
+      },
+      chain: {
+        status: chainStatus,
+        firstDivergence: chainBaselineStatus ? chainBaselineStatus.firstDivergence : -1,
+        rows,
+      },
+    };
+    downloadHtmlReport(
+      data,
+      (fileInfo?.name ?? 'forensic-report').replace(/\.mcap$/i, ''),
+    );
+  }, [fileHash, expectedHash, integrity, authenticChain, displayedChain, chainBaselineStatus, fileInfo, currentFile]);
 
   return (
     <div className="forensic-panel">
@@ -412,6 +467,12 @@ const ForensicPanel: React.FC = () => {
           </>
         )}
       </section>
+
+      <div className="forensic-export">
+        <button className="forensic-btn" onClick={handleExport} title="Download a self-contained HTML report">
+          ⬇ Export HTML report
+        </button>
+      </div>
     </div>
   );
 };
