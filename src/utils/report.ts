@@ -4,6 +4,9 @@
  * Used by the Forensic tab "Export HTML report" button.
  */
 
+/** Spatial surround order (same as the in-app 6-camera grid). */
+const CAMERA_GRID_ORDER = ['front_left', 'front', 'front_right', 'back_left', 'back', 'back_right'];
+
 export interface ReportRow {
   frame: number;
   timeSec: string;
@@ -134,8 +137,14 @@ export function buildHtmlReport(data: ReportData): string {
       : data.events.map((e) => `<span class="badge ${e.toLowerCase().includes('collision') ? 'bad' : 'neutral'}">${esc(e)}</span>`).join(' ');
   const velText = data.telemetry.velocity === null ? '—' : `${data.telemetry.velocity.toFixed(2)} m/s`;
   const accText = data.telemetry.acceleration === null ? '—' : `${data.telemetry.acceleration.toFixed(2)} m/s²`;
-  const camerasHtml = data.cameras.length
-    ? `<div class="cam-grid">${data.cameras
+  // Sort into the same spatial surround order as the in-app 6-camera grid.
+  const orderedCameras = [...data.cameras].sort((a, b) => {
+    const ia = CAMERA_GRID_ORDER.indexOf(a.label.trim().toLowerCase());
+    const ib = CAMERA_GRID_ORDER.indexOf(b.label.trim().toLowerCase());
+    return (ia === -1 ? CAMERA_GRID_ORDER.length : ia) - (ib === -1 ? CAMERA_GRID_ORDER.length : ib);
+  });
+  const camerasHtml = orderedCameras.length
+    ? `<div class="cam-grid">${orderedCameras
         .map(
           (c) =>
             `<figure class="cam"><img src="${c.dataUrl}" alt="${esc(c.label)}" /><figcaption>${esc(c.label)}</figcaption></figure>`,
@@ -184,7 +193,7 @@ export function buildHtmlReport(data: ReportData): string {
   .snap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; margin-bottom: 6px; }
   .snap-grid .k { color: #6b7a8a; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
   .snap-grid .v { font-size: 13px; }
-  .cam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 4px; }
+  .cam-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
   .cam { margin: 0; background: #0a0e14; border: 1px solid #1b2633; border-radius: 6px; padding: 6px; }
   .cam img { width: 100%; display: block; border-radius: 4px; }
   .cam figcaption { font-size: 11px; color: #8b9aab; margin-top: 4px; }
