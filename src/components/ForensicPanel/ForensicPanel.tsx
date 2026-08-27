@@ -248,7 +248,6 @@ const ForensicPanel: React.FC = () => {
               <div className="forensic-link forensic-link-header">
                 <span className="forensic-link-frame">#</span>
                 <span className="forensic-link-t">time</span>
-                <span className="forensic-link-flags">flags</span>
                 <span className="forensic-link-dot" />
               </div>
               {displayedChain?.map((link) => {
@@ -262,14 +261,6 @@ const ForensicPanel: React.FC = () => {
                   >
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
-                    <span className="forensic-link-flags">
-                      {r.collision && (
-                        <span className="forensic-flag col" title="collision detected">col</span>
-                      )}
-                      {r.braking && (
-                        <span className="forensic-flag brk" title="sudden braking event">brk</span>
-                      )}
-                    </span>
                     <span
                       className={`forensic-link-dot ${
                         tamperedFrame !== null && link.index < tamperedFrame

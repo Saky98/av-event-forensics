@@ -206,7 +206,7 @@
 
 .forensic-link {
   display: grid;
-  grid-template-columns: 34px 52px 40px 14px;
+  grid-template-columns: 34px 52px 14px;
   align-items: center;
   gap: 6px;
   padding: 3px 6px;
@@ -240,29 +240,6 @@
   text-align: right;
 }
 
-.forensic-flag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 2px 5px;
-  border-radius: 3px;
-  margin-right: 3px;
-  text-transform: uppercase;
-}
-
-.forensic-flag.col {
-  color: #ff8a8a;
-  background: rgba(255, 107, 107, 0.14);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-}
-
-.forensic-flag.brk {
-  color: #ffc46b;
-  background: rgba(255, 196, 107, 0.12);
-  border: 1px solid rgba(255, 196, 107, 0.3);
-}
-
 .forensic-verify-msg {
   margin: 6px 0 8px;
   padding: 6px 10px;
@@ -286,10 +263,6 @@
 
 .forensic-link-t {
   color: #8b9aab;
-}
-
-.forensic-link-flags {
-  text-align: center;
 }
 
 .forensic-link-dot {
