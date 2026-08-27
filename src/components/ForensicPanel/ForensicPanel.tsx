@@ -148,6 +148,28 @@ const ForensicPanel: React.FC = () => {
   const expectedHashValid = expectedHash !== null && expectedHash.trim().length === 64;
   const integrityStatus = hashMatch === null ? 'neutral' : hashMatch ? 'ok' : 'bad';
 
+  // Chain status vs the stored baseline: compares the currently loaded chain
+  // against the snapshot's expected per-frame hashes. Falls back to null when
+  // there is no baseline yet (then the local chainCheck badge is used).
+  const chainBaselineStatus = useMemo(() => {
+    if (!integrity || integrity.noSnapshot) {
+      return null;
+    }
+    const expected = integrity.baselineFrameChain ?? null;
+    const current = authenticChain?.map((l) => l.hash) ?? [];
+    let firstDivergence = -1;
+    if (expected && current.length) {
+      const n = Math.max(expected.length, current.length);
+      for (let i = 0; i < n; i++) {
+        if ((expected[i] ?? '') !== (current[i] ?? '')) {
+          firstDivergence = i;
+          break;
+        }
+      }
+    }
+    return { intact: firstDivergence === -1, firstDivergence };
+  }, [integrity, authenticChain]);
+
   return (
     <div className="forensic-panel">
       {/* ---- 1. File integrity ---- */}
@@ -255,12 +277,28 @@ const ForensicPanel: React.FC = () => {
       <section className="forensic-card">
         <div className="forensic-card-header">
           <span className="forensic-card-title">Frame Hash Chain (chain of custody)</span>
-          <span className={`forensic-badge ${chainCheck ? (chainCheck.intact ? 'ok' : 'bad') : 'neutral'}`}>
-            {chainCheck
-              ? chainCheck.intact
+          <span
+            className={`forensic-badge ${
+              chainBaselineStatus
+                ? chainBaselineStatus.intact
+                  ? 'ok'
+                  : 'bad'
+                : chainCheck
+                  ? chainCheck.intact
+                    ? 'ok'
+                    : 'bad'
+                  : 'neutral'
+            }`}
+          >
+            {chainBaselineStatus
+              ? chainBaselineStatus.intact
                 ? `✓ ${authenticChain?.length ?? 0} links intact`
-                : `✗ broke at link ${chainCheck.firstDivergence}`
-              : '—'}
+                : `✗ modified ${authenticChain?.length ?? 0} links (diverges from baseline at link ${chainBaselineStatus.firstDivergence})`
+              : chainCheck
+                ? chainCheck.intact
+                  ? `✓ ${authenticChain?.length ?? 0} links intact`
+                  : `✗ broke at link ${chainCheck.firstDivergence}`
+                : '—'}
           </span>
         </div>
         {!authenticChain || authenticChain.length === 0 ? (
