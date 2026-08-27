@@ -19,8 +19,7 @@ import './ForensicPanel.css';
  * Three cards:
  *  1. File integrity  — SHA-256 of the raw file (computed in the worker) +
  *     optional expected-hash comparison (green/red).
- *  2. Provenance      — conversion metadata (library, profile, counts) and a
- *     note about MCAP metadata/provenance records.
+ *  2. Provenance      — producer (library), content counts and size/compression.
  *  3. Hash chain      — per-frame chain of custody (SHA-256 linked ledger).
  *     The "authentic" chain is recomputed from the source data; "Simulate
  *     tamper" alters a copy of one frame's record and recomputes the chain,
@@ -31,7 +30,7 @@ import './ForensicPanel.css';
 
 const ForensicPanel: React.FC = () => {
   const dispatch = useDispatch();
-  const { fileInfo, fileHash, expectedHash, telemetry, events, currentFile } = useSelector(
+  const { fileInfo, fileHash, expectedHash, telemetry, events } = useSelector(
     (state: RootState) => state.app,
   );
 
@@ -173,9 +172,7 @@ const ForensicPanel: React.FC = () => {
           )}
         </div>
         <p className="forensic-hint">
-          SHA-256 is computed over the raw bytes of the opened file (in the decoding worker).
-          Compare it against the hash produced by <code>sha256sum</code> at capture time to prove
-          the file was not altered.
+          Computed over the raw file bytes; compare against the capture-time <code>sha256sum</code> to prove the file is unchanged.
         </p>
       </section>
 
@@ -187,49 +184,30 @@ const ForensicPanel: React.FC = () => {
         {fileInfo ? (
           <div className="forensic-meta-grid">
             <div className="forensic-meta-item">
-              <span className="forensic-meta-label">File</span>
-              <span className="forensic-meta-value" title={fileInfo.name}>{fileInfo.name}</span>
-            </div>
-            <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Size</span>
-              <span className="forensic-meta-value">{formatBytes(fileInfo.size)}</span>
-            </div>
-            <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Library</span>
-              <span className="forensic-meta-value">{fileInfo.library || '—'}</span>
-            </div>
-            <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Profile</span>
-              <span className="forensic-meta-value">{fileInfo.profile || '—'}</span>
-            </div>
-            <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Messages</span>
-              <span className="forensic-meta-value">{fileInfo.messageCount.toLocaleString()}</span>
-            </div>
-            <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Channels / Schemas</span>
-              <span className="forensic-meta-value">
-                {fileInfo.channelCount} / {fileInfo.schemaCount}
+              <span className="forensic-meta-label">Producer (library)</span>
+              <span className="forensic-meta-value" title={fileInfo.library || 'unknown'}>
+                {fileInfo.library || 'unknown'}
               </span>
             </div>
             <div className="forensic-meta-item">
-              <span className="forensic-meta-label">Compression</span>
-              <span className="forensic-meta-value">
-                {fileInfo.compressionFormats.length ? fileInfo.compressionFormats.join(', ') : 'none'}
+              <span className="forensic-meta-label">Content</span>
+              <span className="forensic-meta-value" title={`${fileInfo.messageCount} msgs in ${fileInfo.channelCount} channels / ${fileInfo.schemaCount} schemas`}>
+                {fileInfo.channelCount} ch · {fileInfo.schemaCount} schemas · {fileInfo.messageCount.toLocaleString()} msgs
               </span>
             </div>
             <div className="forensic-meta-item">
-              <span className="forensic-meta-label">MCAP metadata records</span>
-              <span className="forensic-meta-value">0 (not written by converter)</span>
+              <span className="forensic-meta-label">Size · Compression</span>
+              <span className="forensic-meta-value">
+                {formatBytes(fileInfo.size)}
+                {fileInfo.compressionFormats.length ? ` · ${fileInfo.compressionFormats.join(', ')}` : ''}
+              </span>
             </div>
           </div>
         ) : (
           <p className="forensic-muted">No file loaded.</p>
         )}
         <p className="forensic-hint">
-          The MCAP <code>library</code> header records which tool produced the file; a provenance /
-          metadata record would carry conversion parameters. These DeepAccident files were written
-          by <code>python mcap 1.3.1</code> without provenance records.
+          The <code>library</code> header records which tool produced the file and links it to its provenance.
         </p>
       </section>
 
@@ -267,32 +245,30 @@ const ForensicPanel: React.FC = () => {
               <p className={`forensic-verify-msg ${chainCheck?.intact ? 'ok' : 'bad'}`}>{verifyMsg}</p>
             )}
             <p className="forensic-hint">
-              Each link = SHA-256(prevHash | frame record). Any change to a record breaks every
-              following link. <span className="forensic-flag col">col</span> = collision detected ·{' '}
-              <span className="forensic-flag brk">brk</span> = sudden braking event
+              <span className="forensic-flag col">col</span> collision ·{' '}
+              <span className="forensic-flag brk">brk</span> sudden braking · any change breaks every following link
             </p>
             <div className="forensic-chain">
               <div className="forensic-link forensic-link-header">
                 <span className="forensic-link-frame">#</span>
                 <span className="forensic-link-t">time</span>
                 <span className="forensic-link-v">velocity m/s</span>
-                <span className="forensic-link-a">accel m/s²</span>
                 <span className="forensic-link-flags">flags</span>
-                <span className="forensic-link-hash">hash</span>
                 <span className="forensic-link-dot" />
               </div>
               {displayedChain?.map((link) => {
                 const isTampered = tamperedFrame !== null && link.index >= tamperedFrame;
                 const r = link.record;
                 return (
-                  <div key={link.index} className={`forensic-link ${isTampered ? 'tampered' : ''}`}>
+                  <div
+                    key={link.index}
+                    className={`forensic-link ${isTampered ? 'tampered' : ''}`}
+                    title={isTampered ? `link ${link.index}: hash ${shortHash(link.hash)}… breaks the chain` : link.hash}
+                  >
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
                     <span className="forensic-link-v">
                       {Number.isFinite(r.velocity) ? r.velocity.toFixed(1) : '—'}
-                    </span>
-                    <span className="forensic-link-a">
-                      {Number.isFinite(r.acceleration) ? r.acceleration.toFixed(1) : '—'}
                     </span>
                     <span className="forensic-link-flags">
                       {r.collision && (
@@ -302,9 +278,6 @@ const ForensicPanel: React.FC = () => {
                         <span className="forensic-flag brk" title="sudden braking event">brk</span>
                       )}
                     </span>
-                    <code className="forensic-link-hash" title={link.hash}>
-                      {shortHash(link.hash)}…
-                    </code>
                     <span
                       className={`forensic-link-dot ${
                         tamperedFrame !== null && link.index < tamperedFrame
@@ -327,14 +300,12 @@ const ForensicPanel: React.FC = () => {
             </div>
             <p className="forensic-hint">
               {tamperedFrame === null
-                ? 'Simulate an alteration of one frame’s record to see the chain of custody break, then press "Verify chain" to confirm the divergence against the source data.'
-                : `Tampered frame ${tamperedFrame}: every link from it onward no longer matches the authentic chain — this is how a hash chain proves where data was modified.`}
+                ? 'Simulate a frame alteration to see the chain break, then verify against the source data.'
+                : `Tamper at link ${tamperedFrame}: every link from here on fails — the chain shows exactly where data was modified.`}
             </p>
           </>
         )}
       </section>
-
-      {currentFile && <p className="forensic-footer">Session file: {currentFile.name}</p>}
     </div>
   );
 };

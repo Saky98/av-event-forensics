@@ -1,7 +1,7 @@
 .forensic-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   height: 100%;
   min-height: 0;
   overflow-y: auto;
@@ -12,7 +12,7 @@
   background: #10161f;
   border: 1px solid var(--border, #2a3b4d);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 16px 18px;
 }
 
 .forensic-card-header {
@@ -149,8 +149,8 @@
 
 .forensic-meta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .forensic-meta-item {
@@ -195,18 +195,18 @@
 .forensic-chain {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: 280px;
+  gap: 3px;
+  max-height: 300px;
   overflow-y: auto;
   border: 1px solid #1b2633;
   border-radius: 6px;
-  padding: 4px;
+  padding: 6px;
   background: #0a0e14;
 }
 
 .forensic-link {
   display: grid;
-  grid-template-columns: 34px 52px 70px 70px 40px 1fr 14px;
+  grid-template-columns: 34px 52px 70px 40px 14px;
   align-items: center;
   gap: 6px;
   padding: 3px 6px;
@@ -288,20 +288,13 @@
   color: #8b9aab;
 }
 
-.forensic-link-v,
-.forensic-link-a {
+.forensic-link-v {
   color: #c9d4e0;
   font-variant-numeric: tabular-nums;
 }
 
 .forensic-link-flags {
   text-align: center;
-}
-
-.forensic-link-hash {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  color: #9ecbff;
 }
 
 .forensic-link-dot {
@@ -318,10 +311,4 @@
 
 .forensic-link-dot.bad {
   background: #ff6b6b;
-}
-
-.forensic-footer {
-  color: #6b7a8a;
-  font-size: 11px;
-  margin: 4px 2px;
 }
