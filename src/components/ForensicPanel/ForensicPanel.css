@@ -192,6 +192,34 @@
   max-width: 320px;
 }
 
+.forensic-frame-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b9aab;
+}
+
+.forensic-frame-label {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.forensic-frame-input {
+  width: 64px;
+  background: #0a0e14;
+  color: #e6edf3;
+  border: 1px solid #2a3b4d;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.forensic-frame-input:disabled {
+  opacity: 0.45;
+}
+
 .forensic-chain {
   display: flex;
   flex-direction: column;

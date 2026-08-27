@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { setExpectedHash } from '../../store/appStore';
@@ -40,6 +40,15 @@ const ForensicPanel: React.FC = () => {
   /** Result of the last Verify / tamper action (always visible feedback). */
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** Custom tamper frame index (0-based), controlled text input. */
+  const [tamperFrameInput, setTamperFrameInput] = useState('');
+  /** Whether the tamper frame was defaulted (so later chain rebuilds don't overwrite a user value). */
+  const tamperFrameInputTouched = useRef(false);
+  const setDefaultTamperFrame = (chainLength: number) => {
+    if (!tamperFrameInputTouched.current) {
+      setTamperFrameInput(String(Math.floor(chainLength / 2)));
+    }
+  };
 
   // Authentic chain: recomputed from the source data whenever it changes.
   useEffect(() => {
@@ -58,6 +67,7 @@ const ForensicPanel: React.FC = () => {
       setAuthenticChain(chain);
       setDisplayedChain(chain);
       setTamperedFrame(null);
+      setDefaultTamperFrame(chain.length);
       // Neutral until the user presses "Verify chain" — dots stay grey, then
       // turn green (ok) or red (bad) according to the check result.
       setChainCheck(null);
@@ -85,10 +95,14 @@ const ForensicPanel: React.FC = () => {
   }, [authenticChain, displayedChain]);
 
   const simulateTamper = useCallback(async () => {
-    if (!authenticChain) {
+    if (!authenticChain || authenticChain.length === 0) {
       return;
     }
-    const frame = Math.floor(authenticChain.length / 2);
+    // Parse and clamp the chosen frame to a valid index.
+    const parsed = Number(tamperFrameInput);
+    const frame = Number.isInteger(parsed)
+      ? Math.min(Math.max(parsed, 0), authenticChain.length - 1)
+      : Math.floor(authenticChain.length / 2);
     // Alter a copy of one record (velocity ×1.3) and recompute the chain.
     const records = authenticChain.map((link) => ({ ...link.record }));
     const rec = records[frame];
@@ -100,7 +114,7 @@ const ForensicPanel: React.FC = () => {
     setVerifyMsg(
       `Tampered frame ${frame} (velocity ×1.3): links ${frame}..${authenticChain.length - 1} no longer match the source chain.`,
     );
-  }, [authenticChain]);
+  }, [authenticChain, tamperFrameInput]);
 
   const resetChain = useCallback(() => {
     setDisplayedChain(authenticChain);
@@ -235,8 +249,25 @@ const ForensicPanel: React.FC = () => {
               <button className="forensic-btn" onClick={verifyChain} disabled={!displayedChain}>
                 Verify chain
               </button>
+              <label className="forensic-frame-field">
+                <span className="forensic-frame-label">Frame</span>
+                <input
+                  className="forensic-frame-input"
+                  type="number"
+                  min={0}
+                  max={authenticChain.length - 1}
+                  step={1}
+                  value={tamperFrameInput}
+                  onChange={(e) => {
+                    tamperFrameInputTouched.current = true;
+                    setTamperFrameInput(e.target.value);
+                  }}
+                  disabled={tamperedFrame !== null}
+                  title="Frame index to tamper (0-based)"
+                />
+              </label>
               <button className="forensic-btn" onClick={simulateTamper} disabled={tamperedFrame !== null}>
-                Simulate tamper (frame {tamperedFrame ?? Math.floor(authenticChain.length / 2)})
+                Simulate tamper
               </button>
               <button className="forensic-btn" onClick={resetChain} disabled={tamperedFrame === null}>
                 Reset
