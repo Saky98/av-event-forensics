@@ -7,7 +7,6 @@ import {
   buildChainRecords,
   checkChain,
   computeChain,
-  shortHash,
   type ChainCheck,
   type ChainLink,
 } from '../../utils/forensics';
@@ -250,6 +249,7 @@ const ForensicPanel: React.FC = () => {
               <div className="forensic-link forensic-link-header">
                 <span className="forensic-link-frame">#</span>
                 <span className="forensic-link-t">time</span>
+                <span className="forensic-link-hash">sha-256</span>
                 <span className="forensic-link-dot" />
               </div>
               {displayedChain?.map((link) => {
@@ -267,10 +267,11 @@ const ForensicPanel: React.FC = () => {
                   <div
                     key={link.index}
                     className={`forensic-link ${isTampered ? 'tampered' : ''}`}
-                    title={isTampered ? `link ${link.index}: hash ${shortHash(link.hash)}… breaks the chain` : link.hash}
+                    title={isTampered ? `link ${link.index}: hash breaks the chain` : link.hash}
                   >
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
+                    <code className="forensic-link-hash" title={link.hash}>{link.hash}</code>
                     <span
                       className={`forensic-link-dot ${dotClass}`}
                       title={
