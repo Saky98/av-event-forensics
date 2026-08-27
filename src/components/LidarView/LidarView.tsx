@@ -3,8 +3,9 @@ import { useSelector } from 'react-redux';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RootState } from '../../store';
-import { useMcapWorker, type SceneEntity } from '../../hooks/useMcapWorker';
-import { rosQuatToThree, rosToThree, transformPositions, yawFromQuaternion } from '../../utils/coordinates';
+import { useMcapWorker } from '../../hooks/useMcapWorker';
+import { transformPositions } from '../../utils/coordinates';
+import { buildMapMesh, buildSweepMesh, clearGroup, disposeObject, rebuildBoxes, updateEgoMarker } from '../../utils/lidarScene';
 import './LidarView.css';
 
 /**
@@ -19,7 +20,7 @@ import './LidarView.css';
  * is y-up, so we map (x, y, z) -> (x, z, -y) and quaternions similarly.
  */
 
-interface SceneData {
+export interface SceneData {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -36,111 +37,9 @@ const DEFAULT_DECIMATION = 2;
 const MAP_DECIMATION = 8;
 const DEFAULT_POINT_SIZE = 1.6;
 
-function buildSweepMesh(
-  positions: Float32Array,
-  colors: Float32Array | null,
-  pointSize: number,
-): THREE.Points {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  if (colors) {
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  }
-  const material = new THREE.PointsMaterial({
-    size: pointSize,
-    sizeAttenuation: true,
-    vertexColors: Boolean(colors),
-    color: colors ? 0xffffff : 0x9fb4c8,
-  });
-  return new THREE.Points(geometry, material);
-}
-
-function buildMapMesh(positions: Float32Array, colors: Float32Array | null): THREE.Points {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  if (colors) {
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  }
-  const material = new THREE.PointsMaterial({
-    size: 1.1,
-    sizeAttenuation: true,
-    vertexColors: Boolean(colors),
-    color: colors ? 0xffffff : 0x5a6a7a,
-    transparent: true,
-    opacity: 0.9,
-  });
-  return new THREE.Points(geometry, material);
-}
-
-function buildBox(center: number[], size: number[], quat: number[], color: THREE.ColorRepresentation, alpha: number): THREE.Group {
-  const box = new THREE.BoxGeometry(1, 1, 1);
-  // Solid translucent fill (visible even from far away).
-  const fill = new THREE.Mesh(
-    box,
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: Math.min(1, alpha) * 0.28,
-      depthWrite: false,
-    }),
-  );
-  // Crisp outline.
-  const outline = new THREE.LineSegments(
-    new THREE.EdgesGeometry(box),
-    new THREE.LineBasicMaterial({ color, transparent: true, opacity: Math.min(1, alpha) * 0.95 }),
-  );
-  const group = new THREE.Group();
-  group.add(fill, outline);
-  const [px, py, pz] = rosToThree(center[0], center[1], center[2]);
-  group.position.set(px, py, pz);
-  const q = rosQuatToThree(quat as [number, number, number, number]);
-  group.quaternion.set(q[0], q[1], q[2], q[3]);
-  // Size maps the same as position axes.
-  group.scale.set(size[0], size[2], size[1]);
-  return group;
-}
-
-function buildEgoMarker(): THREE.Group {
-  const group = new THREE.Group();
-  // Vehicle body outline (approximate sedan).
-  const body = new THREE.EdgesGeometry(new THREE.BoxGeometry(4.6, 1.7, 1.9));
-  const bodyMesh = new THREE.LineSegments(body, new THREE.LineBasicMaterial({ color: 0x00e5ff }));
-  group.add(bodyMesh);
-  // Heading arrow along +x (ROS forward).
-  const arrowPoints = [new THREE.Vector3(2.4, 0, 0), new THREE.Vector3(3.6, 0, 0)];
-  const arrow = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(arrowPoints),
-    new THREE.LineBasicMaterial({ color: 0x00e5ff }),
-  );
-  group.add(arrow);
-  return group;
-}
-
-/** Disposes geometry/material of an object and its children (keeps it in the scene). */
-function disposeObject(obj: THREE.Object3D): void {
-  obj.traverse((child) => {
-    const mesh = child as THREE.Points;
-    if (mesh.geometry) {
-      mesh.geometry.dispose();
-    }
-    const material = (mesh as THREE.Points).material as THREE.Material | THREE.Material[] | undefined;
-    if (material) {
-      if (Array.isArray(material)) {
-        material.forEach((m) => m.dispose());
-      } else {
-        material.dispose();
-      }
-    }
-  });
-}
-
-/** Disposes and removes every child of a group (the group itself stays in the scene). */
-function clearGroup(group: THREE.Group): void {
-  for (const child of [...group.children]) {
-    disposeObject(child);
-    group.remove(child);
-  }
-}
+// Scene builder helpers (buildSweepMesh, buildMapMesh, buildBox, buildEgoMarker,
+// disposeObject, clearGroup, rebuildBoxes, updateEgoMarker) live in
+// src/utils/lidarScene.ts so they can be shared with the report snapshot.
 
 function initScene(container: HTMLDivElement): SceneData {
   const scene = new THREE.Scene();
@@ -351,7 +250,7 @@ const LidarView: React.FC = () => {
           if (latestSeq.current !== seq) {
             return;
           }
-          rebuildBoxes(scene, result.entities);
+          rebuildBoxes(scene.boxesGroup, result.entities);
         }),
       );
     }
@@ -362,7 +261,7 @@ const LidarView: React.FC = () => {
           if (latestSeq.current !== seq) {
             return;
           }
-          updateEgoMarker(scene, result.pose);
+          updateEgoMarker(scene.egoGroup, result.pose);
         }),
       );
     }
@@ -446,30 +345,5 @@ const LidarView: React.FC = () => {
     </div>
   );
 };
-
-/** Replaces the annotation box group from a parsed SceneUpdate. */
-function rebuildBoxes(scene: SceneData, entities: SceneEntity[]): void {
-  clearGroup(scene.boxesGroup);
-  const palette = [0x4da6ff, 0xffd34d, 0xff704d, 0x4dffb8, 0xc94dff];
-  entities.forEach((entity, entityIndex) => {
-    const baseColor = palette[entityIndex % palette.length];
-    entity.cubes.forEach((cube) => {
-      const color = cube.color ? new THREE.Color(cube.color[0], cube.color[1], cube.color[2]).getHex() : baseColor;
-      const alpha = cube.color ? cube.color[3] : 1;
-      scene.boxesGroup.add(buildBox(cube.pose.position, cube.size, cube.pose.orientation, color, alpha));
-    });
-  });
-}
-
-/** Updates the ego vehicle marker from a parsed pose (or hides it). */
-function updateEgoMarker(scene: SceneData, pose: { position: number[]; orientation: number[] } | null): void {
-  clearGroup(scene.egoGroup);
-  if (!pose) {
-    return;
-  }
-  const marker = buildEgoMarker();
-  marker.rotation.y = -yawFromQuaternion(pose.orientation as [number, number, number, number]);
-  scene.egoGroup.add(marker);
-}
 
 export default LidarView;

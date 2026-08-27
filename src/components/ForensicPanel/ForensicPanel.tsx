@@ -10,6 +10,8 @@ import {
   type ChainLink,
 } from '../../utils/forensics';
 import { downloadHtmlReport, type ReportData } from '../../utils/report';
+import { useMcapWorker } from '../../hooks/useMcapWorker';
+import { captureCamera, captureLidar } from '../../utils/snapshot';
 import './ForensicPanel.css';
 
 /**
@@ -28,9 +30,24 @@ import './ForensicPanel.css';
  */
 
 const ForensicPanel: React.FC = () => {
-  const { fileInfo, currentFile, fileHash, expectedHash, telemetry, events, integrity } = useSelector(
-    (state: RootState) => state.app,
-  );
+  const {
+    fileInfo,
+    currentFile,
+    fileHash,
+    expectedHash,
+    telemetry,
+    events,
+    integrity,
+    currentTimestamp,
+    timeRange,
+    visibleCameras,
+    lidarPointTopics,
+    lidarMapTopics,
+    annotationTopics,
+    egoPoseTopic,
+    frameStepMs,
+  } = useSelector((state: RootState) => state.app);
+  const worker = useMcapWorker();
 
   const [authenticChain, setAuthenticChain] = useState<ChainLink[] | null>(null);
   const [displayedChain, setDisplayedChain] = useState<ChainLink[] | null>(null);
@@ -171,8 +188,27 @@ const ForensicPanel: React.FC = () => {
     return { intact: firstDivergence === -1, firstDivergence };
   }, [integrity, authenticChain]);
 
-  // Builds and downloads the self-contained HTML report.
-  const handleExport = useCallback(() => {
+  // Nearest telemetry value at a relative second.
+  const nearestValue = (t: number[] | undefined, v: number[] | undefined, relSec: number): number | null => {
+    if (!t || !v || t.length === 0) {
+      return null;
+    }
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < t.length; i++) {
+      const d = Math.abs(t[i] - relSec);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    const val = v[best];
+    return Number.isFinite(val) ? val : null;
+  };
+
+  // Builds and downloads the self-contained HTML report (async: captures
+  // cameras + LiDAR + telemetry at the current instant).
+  const handleExport = useCallback(async () => {
     const computedHash = fileHash ?? '';
     const expected = expectedHash ?? '';
     const hashMatches =
@@ -197,6 +233,59 @@ const ForensicPanel: React.FC = () => {
         : 'modified'
       : 'unknown';
 
+    // ---- live snapshot at the current timestamp ----
+    const seek = timeRange && currentTimestamp < timeRange.start ? timeRange.start : currentTimestamp;
+    const relSec = timeRange ? Number(currentTimestamp - timeRange.start) / 1e9 : 0;
+    const frame =
+      timeRange && frameStepMs > 0
+        ? Math.floor(Number(currentTimestamp - timeRange.start) / (frameStepMs * 1e6)) + 1
+        : null;
+
+    const workerShape = {
+      readImage: worker.readImage,
+      readLidarPoints: worker.readLidarPoints,
+      readSceneEntities: worker.readSceneEntities,
+      readPose: worker.readPose,
+    };
+
+    const cameraCaptures = await Promise.all(
+      visibleCameras.map(async (topic) => {
+        const dataUrl = await captureCamera(workerShape, topic, seek);
+        return dataUrl ? { label: topic.replace(/.*camera_/, '').replace(/\/.*/, ''), dataUrl } : null;
+      }),
+    );
+    const cameras = cameraCaptures.filter(
+      (c): c is { label: string; dataUrl: string } => c !== null && c.dataUrl !== 'data:image/png;base64,',
+    );
+    const lidarDataUrl = await captureLidar(workerShape, {
+      seekTime: seek,
+      lidarPointTopics,
+      lidarMapTopics,
+      annotationTopics,
+      egoPoseTopic,
+    });
+
+    const vVel = telemetry?.velocity?.t ?? [];
+    const vVelVals = telemetry?.velocity?.v ?? [];
+    const velocity = nearestValue(vVel, vVelVals, relSec);
+    const aT = telemetry?.acceleration?.t ?? [];
+    const aV = telemetry?.acceleration?.v ?? [];
+    const acceleration = nearestValue(aT, aV, relSec);
+
+    const eventsList: string[] = [];
+    const evCol = events?.collision;
+    if (evCol?.t && evCol.v) {
+      for (let i = 0; i < evCol.t.length; i++) {
+        if (Math.abs(evCol.t[i] - relSec) < 0.06 && evCol.v[i] !== 0) {
+          eventsList.push('collision');
+          break;
+        }
+      }
+    }
+    if (events?.braking?.some((b) => Math.abs(b.t - relSec) < 0.06)) {
+      eventsList.push('sudden braking');
+    }
+
     const data: ReportData = {
       fileName: fileInfo?.name ?? currentFile?.name ?? 'file',
       library: fileInfo?.library ?? '—',
@@ -208,6 +297,12 @@ const ForensicPanel: React.FC = () => {
       computedHash,
       expectedHash: expected,
       hashMatches,
+      snapshotAt: relSec.toFixed(2),
+      frame,
+      telemetry: { velocity, acceleration },
+      events: eventsList,
+      cameras,
+      lidarDataUrl,
       baseline: {
         hasSnapshot: integrity ? !integrity.noSnapshot : false,
         intact: integrity ? integrity.intact : false,
@@ -223,7 +318,27 @@ const ForensicPanel: React.FC = () => {
       data,
       (fileInfo?.name ?? 'forensic-report').replace(/\.mcap$/i, ''),
     );
-  }, [fileHash, expectedHash, integrity, authenticChain, displayedChain, chainBaselineStatus, fileInfo, currentFile]);
+  }, [
+    fileHash,
+    expectedHash,
+    integrity,
+    authenticChain,
+    displayedChain,
+    chainBaselineStatus,
+    fileInfo,
+    currentFile,
+    timeRange,
+    currentTimestamp,
+    frameStepMs,
+    visibleCameras,
+    lidarPointTopics,
+    lidarMapTopics,
+    annotationTopics,
+    egoPoseTopic,
+    telemetry,
+    events,
+    worker,
+  ]);
 
   return (
     <div className="forensic-panel">

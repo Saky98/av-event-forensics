@@ -12,6 +12,11 @@ export interface ReportRow {
   matches: boolean;
 }
 
+export interface ReportCamera {
+  label: string;
+  dataUrl: string;
+}
+
 export interface ReportData {
   fileName: string;
   library: string;
@@ -23,6 +28,16 @@ export interface ReportData {
   computedHash: string;
   expectedHash: string;
   hashMatches: boolean | null;
+  // Live snapshot at the export moment.
+  snapshotAt: string;
+  frame: number | null;
+  telemetry: {
+    velocity: number | null;
+    acceleration: number | null;
+  };
+  events: string[];
+  cameras: ReportCamera[];
+  lidarDataUrl: string | null;
   baseline: {
     hasSnapshot: boolean;
     intact: boolean;
@@ -112,6 +127,25 @@ export function buildHtmlReport(data: ReportData): string {
       ? `<p class="note">First divergence from baseline at ${data.chain.firstDivergence}.</p>`
       : '';
 
+  const frameText = data.frame === null ? 'n/a' : String(data.frame);
+  const eventsHtml =
+    data.events.length === 0
+      ? '<span class="muted">none at this instant</span>'
+      : data.events.map((e) => `<span class="badge ${e.toLowerCase().includes('collision') ? 'bad' : 'neutral'}">${esc(e)}</span>`).join(' ');
+  const velText = data.telemetry.velocity === null ? '—' : `${data.telemetry.velocity.toFixed(2)} m/s`;
+  const accText = data.telemetry.acceleration === null ? '—' : `${data.telemetry.acceleration.toFixed(2)} m/s²`;
+  const camerasHtml = data.cameras.length
+    ? `<div class="cam-grid">${data.cameras
+        .map(
+          (c) =>
+            `<figure class="cam"><img src="${c.dataUrl}" alt="${esc(c.label)}" /><figcaption>${esc(c.label)}</figcaption></figure>`,
+        )
+        .join('')}</div>`
+    : '<p class="muted">no camera frames captured</p>';
+  const lidarHtml = data.lidarDataUrl
+    ? `<img class="lidar-img" src="${data.lidarDataUrl}" alt="LiDAR snapshot" />`
+    : '<p class="muted">LiDAR snapshot unavailable</p>';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -123,6 +157,7 @@ export function buildHtmlReport(data: ReportData): string {
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #e6edf3; padding: 32px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
   h2 { font-size: 15px; margin: 28px 0 10px; text-transform: uppercase; letter-spacing: .05em; color: #9ecbff; border-bottom: 1px solid #2a3b4d; padding-bottom: 6px; }
+  h3 { font-size: 13px; margin: 16px 0 8px; color: #c9d4e0; }
   .meta { color: #8b9aab; font-size: 12px; margin-bottom: 8px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1b2633; word-break: break-all; }
@@ -145,11 +180,32 @@ export function buildHtmlReport(data: ReportData): string {
   .field dd { margin: 3px 0 0; font-size: 13px; }
   .note { color: #ffc46b; font-size: 12px; }
   .hash { font-family: ui-monospace, monospace; font-size: 12px; color: #9ecbff; word-break: break-all; }
+  .muted { color: #8b9aab; font-size: 12px; }
+  .snap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; margin-bottom: 6px; }
+  .snap-grid .k { color: #6b7a8a; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .snap-grid .v { font-size: 13px; }
+  .cam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 4px; }
+  .cam { margin: 0; background: #0a0e14; border: 1px solid #1b2633; border-radius: 6px; padding: 6px; }
+  .cam img { width: 100%; display: block; border-radius: 4px; }
+  .cam figcaption { font-size: 11px; color: #8b9aab; margin-top: 4px; }
+  .lidar-img { width: 100%; border-radius: 6px; border: 1px solid #1b2633; }
 </style>
 </head>
 <body>
   <h1>Forensic Integrity Report</h1>
   <p class="meta">Generated ${esc(new Date().toISOString())}</p>
+  <h2>Live Snapshot</h2>
+  <dl class="grid">
+    <div class="field"><dt>Relative time</dt><dd>${esc(data.snapshotAt)}</dd></div>
+    <div class="field"><dt>Frame</dt><dd>${frameText}</dd></div>
+    <div class="field"><dt>Velocity</dt><dd>${velText}</dd></div>
+    <div class="field"><dt>Acceleration</dt><dd>${accText}</dd></div>
+    <div class="field"><dt>Events</dt><dd>${eventsHtml}</dd></div>
+  </dl>
+  <h3>Cameras</h3>
+  ${camerasHtml}
+  <h3>LiDAR</h3>
+  ${lidarHtml}
   <h2>File</h2>
   <dl class="grid">
     <div class="field"><dt>File</dt><dd>${esc(data.fileName)}</dd></div>
