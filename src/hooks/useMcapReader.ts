@@ -14,6 +14,7 @@ import {
   setFileHash,
   setFileInfo,
   setFrameStepMs,
+  setIntegrity,
   setLidarTopics,
   setLoadError,
   setLoadStatus,
@@ -27,6 +28,8 @@ import {
 import type { EventData, TelemetryData } from '../types';
 import { useMcapWorker } from './useMcapWorker';
 import { clearMcapSession, loadMcapFile } from '../utils/mcap';
+import { buildChainRecords, computeChain } from '../utils/forensics';
+import { compareIntegrity, saveIntegritySnapshot } from '../utils/integrity';
 
 /** Topics that carry compressed images (cameras), by schema name or topic pattern. */
 function isCameraTopic(schemaName: string, topic: string): boolean {
@@ -45,6 +48,50 @@ function isCameraTopic(schemaName: string, topic: string): boolean {
 export function useMcapReader() {
   const dispatch = useDispatch();
   const { initWorker, closeWorker, readTelemetry, readEvents, hashFile } = useMcapWorker();
+
+  // Builds a per-frame chain from the loaded telemetry/events for the snapshot.
+  const syncIntegrity = useCallback(
+    async (
+      fileName: string,
+      telemetry: TelemetryData | null,
+      events: EventData | null,
+      fileHash: string | null,
+    ): Promise<void> => {
+      if (!fileHash) {
+        dispatch(setIntegrity({ intact: false, mismatchFile: false, mismatchChain: false, noSnapshot: true }));
+        return;
+      }
+      const collisionTimes = events?.collision?.t ?? null;
+      const collisionValues = events?.collision?.v ?? null;
+      const brakingTimes = events?.braking.map((b) => b.t) ?? [];
+      const records = telemetry
+        ? buildChainRecords(telemetry, collisionTimes, collisionValues, brakingTimes)
+        : [];
+      const links = await computeChain(records);
+      const frameChain = links.map((l) => l.hash);
+
+      const comparison = await compareIntegrity(fileName, fileHash, frameChain);
+      if (comparison.noSnapshot) {
+        await saveIntegritySnapshot(fileName, {
+          fileHash,
+          frameChain,
+          createdAt: new Date().toISOString(),
+        });
+        dispatch(
+          setIntegrity({
+            intact: true,
+            mismatchFile: false,
+            mismatchChain: false,
+            noSnapshot: false,
+            snapshotShort: fileHash.slice(0, 8),
+          }),
+        );
+      } else {
+        dispatch(setIntegrity(comparison));
+      }
+    },
+    [dispatch],
+  );
 
   const loadFile = useCallback(
     async (file: File) => {
@@ -107,6 +154,10 @@ export function useMcapReader() {
           await initWorker(file);
           dispatch(setPlayerReady(true));
 
+          // Collected during load; used to build the integrity snapshot/chain.
+          let loadedTelemetry: TelemetryData | null = null;
+          let loadedEvents: EventData | null = null;
+
           // Telemetry series (velocity/acceleration/pose) — small, read once.
           try {
             const result = await readTelemetry({
@@ -127,6 +178,7 @@ export function useMcapReader() {
                 ? { t: toArr(result.pose.t)!, x: toArr(result.pose.x)!, y: toArr(result.pose.y)!, yaw: toArr(result.pose.yaw)! }
                 : null,
             };
+            loadedTelemetry = telemetry;
             dispatch(setTelemetry(telemetry));
           } catch (error) {
             console.warn('telemetry load failed:', error);
@@ -145,14 +197,24 @@ export function useMcapReader() {
                 : null,
               braking: ev.braking,
             };
+            loadedEvents = events;
             dispatch(setEvents(events));
           } catch (error) {
             console.warn('events load failed:', error);
           }
+          let fileHashValue: string | null = null;
           try {
-            dispatch(setFileHash(await hashFile()));
+            fileHashValue = await hashFile();
+            dispatch(setFileHash(fileHashValue));
           } catch (error) {
             console.warn('file hash failed:', error);
+          }
+
+          // Integrity snapshot & registry (chain of custody).
+          try {
+            await syncIntegrity(info.name, loadedTelemetry, loadedEvents, fileHashValue);
+          } catch (error) {
+            console.warn('integrity snapshot failed:', error);
           }
         } catch (error) {
           dispatch(setPlayerReady(false));
@@ -167,7 +229,7 @@ export function useMcapReader() {
         dispatch(setLoadStatus('error'));
       }
     },
-    [dispatch, initWorker, readTelemetry, readEvents, hashFile],
+    [dispatch, initWorker, readTelemetry, readEvents, hashFile, syncIntegrity],
   );
 
   const closeFile = useCallback(() => {

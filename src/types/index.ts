@@ -1,3 +1,5 @@
+import type { IntegrityComparison } from '../utils/integrity';
+
 export interface McapTopic {
   /** Unique id of the channel in the MCAP file */
   channelId: number;
@@ -109,4 +111,6 @@ export interface AppState {
   fileHash: string | null;
   /** Optional expected hash the user pastes for comparison. */
   expectedHash: string | null;
+  /** Result of comparing this file against its stored integrity snapshot. */
+  integrity: IntegrityComparison | null;
 }

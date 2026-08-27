@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { IntegrityComparison } from '../utils/integrity';
 import type {
   AppState,
   EventData,
@@ -38,6 +39,7 @@ const initialState: AppState = {
   events: null,
   fileHash: null,
   expectedHash: null,
+  integrity: null,
 };
 
 export const appSlice = createSlice({
@@ -114,6 +116,9 @@ export const appSlice = createSlice({
     setExpectedHash: (state, action: PayloadAction<string | null>) => {
       state.expectedHash = action.payload;
     },
+    setIntegrity: (state, action: PayloadAction<IntegrityComparison | null>) => {
+      state.integrity = action.payload;
+    },
     clearFile: (state) => {
       state.currentFile = null;
       state.fileInfo = null;
@@ -138,6 +143,7 @@ export const appSlice = createSlice({
       state.events = null;
       state.fileHash = null;
       state.expectedHash = null;
+      state.integrity = null;
     },
     setIsPlaying: (state, action: PayloadAction<boolean>) => {
       state.isPlaying = action.payload;
@@ -175,6 +181,7 @@ export const {
   setEvents,
   setFileHash,
   setExpectedHash,
+  setIntegrity,
   clearFile,
   setIsPlaying,
   setPlaybackSpeed,

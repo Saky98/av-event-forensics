@@ -29,7 +29,7 @@ import './ForensicPanel.css';
 
 const ForensicPanel: React.FC = () => {
   const dispatch = useDispatch();
-  const { fileInfo, fileHash, expectedHash, telemetry, events } = useSelector(
+  const { fileInfo, fileHash, expectedHash, telemetry, events, integrity } = useSelector(
     (state: RootState) => state.app,
   );
 
@@ -189,8 +189,31 @@ const ForensicPanel: React.FC = () => {
             </span>
           )}
         </div>
+        <div className="forensic-row">
+          <span className="forensic-label">Snapshot</span>
+          <span
+            className={`forensic-inline ${
+              !integrity
+                ? ''
+                : integrity.intact
+                  ? 'ok'
+                  : integrity.noSnapshot
+                    ? ''
+                    : 'bad'
+            }`}
+          >
+            {!integrity || integrity.noSnapshot
+              ? 'recording baseline on first open…'
+              : integrity.intact
+                ? `✓ baseline intact${integrity.snapshotShort ? ` · ${integrity.snapshotShort}` : ''}`
+                : integrity.mismatchFile
+                  ? `✗ file modified since baseline (${integrity.snapshotShort})`
+                  : `✗ frame chain diverges since baseline (${integrity.snapshotShort})`}
+          </span>
+        </div>
         <p className="forensic-hint">
           Computed over the raw file bytes; compare against the capture-time <code>sha256sum</code> to prove the file is unchanged.
+          A baseline snapshot (file hash + per-frame chain) is recorded locally on the first open and re-checked on every later open.
         </p>
       </section>
 
