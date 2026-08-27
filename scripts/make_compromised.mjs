@@ -12,10 +12,11 @@ import path from 'node:path';
 import { McapIndexedReader, McapWriter, TempBuffer } from '@mcap/core';
 import { BlobReadable } from '@mcap/browser';
 
-const SRC = 'storage/Town02_with_map.mcap';
-const DST = 'storage/compromised/Town02_with_map.mcap';
+// Usage: node --experimental-strip-types scripts/make_compromised.mjs [src] [dst] [frame]
+const SRC = process.argv[2] ?? 'storage/Town02_with_map.mcap';
+const DST = process.argv[3] ?? SRC.replace(/\.mcap$/, '-compromised.mcap');
 const TAMPER_TOPIC = '/ego/velocity';
-const TAMPER_FRAME = 20; // 0-based
+const TAMPER_FRAME = Number(process.argv[4] ?? 20); // 0-based
 
 // ---- decompress glue (browser-sim, mirroring the smoke tests) ----
 const PORT_SERVER = await (async () => {
@@ -137,3 +138,5 @@ const out = tmp.get();
 fs.mkdirSync(path.dirname(DST), { recursive: true });
 fs.writeFileSync(DST, out);
 console.log(`\nWrote ${DST} (${out.length} bytes, ${tampered} frame tampered).`);
+// Original Node process (saved before the browser-sim `delete globalThis.process`).
+nodeProcess.exit(0);
