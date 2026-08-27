@@ -143,7 +143,7 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 ---
 
 ## Current Phase
-**All 6 phases are DONE** (scaffold, file manager & MCAP loading, multi-camera player, LiDAR 3D, telemetry, forensic validation) — verified live in headless Chromium and via smoke tests on the real files. Open polish backlog: Phase 3 (full-res on click, per-camera toggles), Phase 4 (lazy-load three.js chunk, camera-follow ego, ego trajectory, vehicle_info topic if re-converted), Phase 5 (event markers for collision/braking on the chart, better axes), Phase 6 (write provenance/metadata + per-frame chain into a re-converted MCAP via the python converter so the file itself carries the chain). Also possible: export a forensics report (JSON/text) from the Forensic tab.
+**All 6 phases are DONE** (scaffold, file manager & MCAP loading, multi-camera player, LiDAR 3D, telemetry, forensic validation) — verified live in headless Chromium and via smoke tests on the real files. Forensic polish now includes a **local integrity snapshot/registry** (IndexedDB) that records file hash + per-frame chain on first open and detects modified copies, and a **self-contained HTML report export** (file integrity + hash chain + live sensor snapshot: cameras, LiDAR, telemetry/time/frame/events). Open polish backlog: Phase 3 (full-res on click, per-camera toggles), Phase 4 (lazy-load three.js chunk, camera-follow ego, ego trajectory, vehicle_info topic if re-converted), Phase 5 (event markers for collision/braking on the chart, better axes), Phase 6 (embed provenance/metadata + per-frame chain directly into a re-converted MCAP via the python converter), and report ideas (JSON export besides HTML, persist LiDAR framing across reloads).
 *(Update this line as we progress)*
 
 ## Git Workflow (from Phase 4 onward)
@@ -324,6 +324,33 @@ The goal is not to outperform Foxglove, but to build a functional tool that demo
 - **Vite 8 note:** `@mcap/support`'s `loadDecompressHandlers()` does not bundle under Vite 8/rolldown (CJS `require("./*.wasm")` + Node `Buffer`). Use `src/utils/decompress.ts` instead — it loads the vendored glue at runtime.
 - **URL gotcha (fixed):** `new URL(rel, base)` throws `TypeError: Invalid URL` when `base` is relative (e.g. `'/vendor/wasm/…'` from `import.meta.env.BASE_URL`). `decompress.ts` anchors asset URLs to `location.href` first. The browser-sim smoke test now uses the same relative-base path so this class of bug is caught.
 - **Real-file test:** `scripts/repro-full.mjs` loads `storage/Town02_with_map.mcap` through the exact browser path (http-served file + runtime glue loading + zstd chunk decompression). Works: 14 channels / 46 zstd chunks / 45 lidar msgs (~28 MB payload). Note: DeepAccident log times are huge (epoch ns, e.g. `1700000000100000000`) — the timeline must use file start/end, not 0.
+
+---
+
+## Session Log — 27.08.2026 (telemetry polish, forensic integrity snapshot & HTML report export)
+
+### Telemetry panel polish
+- Added a **persistent legend** (inline color chips) in the Telemetry header so each line's color/unit is always visible (not hover-dependent). Legend is dynamic — only series actually present are shown.
+- **Removed the Heading (yaw)** series from the Telemetry chart (not relevant to the investigation; DeepAccident flags all frames as collision anyway, so flags were dropped too).
+- **Timeline cursor fix:** the vertical cursor is now mapped against the **full recording range** (`timeRange.start..end`) instead of the telemetry series bounds, so the marker reaches the right edge at the true end of the file. Also re-positions via the uPlot `draw` hook so it stays correct after the panel re-mounts on tab switch.
+- Custom tamper frame: hash-chain **Simulate tamper** now accepts a **user-editable frame** (number input, 1-based, default middle) instead of a fixed midpoint.
+- Frame Hash Chain table: frame numbers are now **1-based**; columns were slimmed (velocity, flags/col-brk, full per-frame sha-256 shown; status dot moved to far-left column).
+
+### Forensic tab decluttering
+- Provenance card reduced from 8 fields to **3 essentials** (Producer/library, Content ch·schemas·msgs, Size·Compression). Removed duplicate session-file footer; shortened verbosity everywhere.
+- Hash chain rows: dropped the per-row hash to an extra column (full hash) and moved the status dot left; the "Verify chain" result now turns **all dots green** when intact (tamper still marks red from the point of change).
+
+### Integrity snapshot & registry (chain of custody) — NEW
+- New `src/utils/integrity.ts`: on **first open** of a given MCAP it records a **snapshot** (SHA-256 of the whole file + per-frame hash chain) in **IndexedDB** keyed by the snapshot hash (file-name = hash idea), plus a **registry** mapping filename → snapshot hashes. On every later open it compares the current file/chain against the stored baselines and reports **INTACT / MODIFIED**. The registry keeps **all** snapshot hashes per filename so a compromised copy (same name) is detected as modified instead of overwriting the baseline.
+- File Integrity card now reads **Expected hash from the baseline/registry** (read-only) instead of a free-text field; status text still shown.
+- Frame Hash Chain now shows, per frame, the **expected (baseline) hash vs current** — green when identical, two stacked hashes (green expected / red current) when they diverge. Badge shows global status incl. first divergent frame.
+- Demo asset: `scripts/make_compromised.mjs` re-encodes a copy through `@mcap/core` with a single altered telegram value on frame 20 (args `[src] [dst] [frame]`). Note: browser File objects give no path, so the registry keys on filename — a same-named compromised copy is caught only if the clean original was opened first, or vice versa.
+
+### HTML report export — NEW
+- `src/utils/report.ts`: **Download HTML report** button on the Forensic tab generates a self-contained, presentable HTML document (dark themed) with, in order: **File**, **File Integrity — SHA-256**, **Frame Hash Chain** (scrollable table), then **Live Snapshot** (relative time, frame, velocity, acceleration, events) and **Cameras** (3-column surround grid matching the in-app layout) and **LiDAR** (framed card, capped width).
+- Sensor screen taps are captured at export time from the worker (`captureCamera`, `captureLidar` in `src/utils/snapshot.ts`) — no need for the camera/LiDAR tabs to be open. LiDAR re-frames using the **operator's camera pose** shared via `src/utils/lidarViewState.ts` when they framed the view on the LiDAR tab.
+- Shared LiDAR scene builders moved to `src/utils/lidarScene.ts` so the live view and snapshot use identical code.
+- Backlog idea (not done): JSON export alongside HTML; persist LiDAR framing across page reloads.
 
 ---
 
