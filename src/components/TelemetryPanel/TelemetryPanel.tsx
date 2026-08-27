@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
@@ -10,24 +10,37 @@ import './TelemetryPanel.css';
 /**
  * Phase 5 — Telemetry & Charts.
  *
- * uPlot chart of ego velocity / acceleration (left scale) and heading
- * (right scale, degrees) over relative time. A vertical cursor tracks the
- * global timeline timestamp; clicking the chart seeks the timeline.
+ * uPlot chart of ego velocity / acceleration (single scale) over relative
+ * time. A vertical cursor tracks the global timeline timestamp; clicking the
+ * chart seeks the timeline.
  */
 
 const SERIES_COLORS = {
   velocity: '#4da6ff',
   acceleration: '#ff9f43',
-  heading: '#51cf66',
 };
 
-/** Builds the uPlot data table [x, velocity, acceleration, headingDeg]. */
+/** Legend entries: one per available telemetry series → color + label. */
+function buildLegend(telemetry: TelemetryData | null): { color: string; label: string; unit: string }[] {
+  if (!telemetry) {
+    return [];
+  }
+  const entries: { color: string; label: string; unit: string }[] = [];
+  if (telemetry.velocity?.t?.length) {
+    entries.push({ color: SERIES_COLORS.velocity, label: 'Velocity', unit: 'm/s' });
+  }
+  if (telemetry.acceleration?.t?.length) {
+    entries.push({ color: SERIES_COLORS.acceleration, label: 'Acceleration', unit: 'm/s²' });
+  }
+  return entries;
+}
+
+/** Builds the uPlot data table [x, velocity, acceleration]. */
 function buildData(telemetry: TelemetryData): uPlot.AlignedData {
-  const x: number[] = telemetry.velocity?.t ?? telemetry.acceleration?.t ?? telemetry.pose?.t ?? [];
+  const x: number[] = telemetry.velocity?.t ?? telemetry.acceleration?.t ?? [];
   const velocity: number[] = telemetry.velocity?.v ?? [];
   const acceleration: number[] = telemetry.acceleration?.v ?? [];
-  const heading: number[] = telemetry.pose ? telemetry.pose.yaw.map((y) => (y * 180) / Math.PI) : [];
-  return [x, velocity, acceleration, heading];
+  return [x, velocity, acceleration];
 }
 
 const TelemetryPanel: React.FC = () => {
@@ -41,6 +54,30 @@ const TelemetryPanel: React.FC = () => {
   useEffect(() => {
     timeRangeRef.current = timeRange;
   }, [timeRange]);
+  // Latest timestamp for the draw hook's cursor placement (avoids stale refs).
+  const timestampRef = useRef(currentTimestamp);
+  useEffect(() => {
+    timestampRef.current = currentTimestamp;
+  }, [currentTimestamp]);
+
+  // Places the vertical timeline cursor at the timestamp read from the refs.
+  // Called from the uPlot draw hook AND the timestamp effect so the marker is
+  // always correct even after the panel is re-mounted on tab switch.
+  const positionCursor = useCallback((plot: uPlot, cursor: HTMLDivElement) => {
+    const range = timeRangeRef.current;
+    if (!range) {
+      return;
+    }
+    const relSec = Number(timestampRef.current - range.start) / 1e9;
+    const totalSec = Number(range.end - range.start) / 1e9;
+    if (!Number.isFinite(relSec) || !Number.isFinite(totalSec) || totalSec <= 0) {
+      return;
+    }
+    const frac = Math.max(0, Math.min(1, relSec / totalSec));
+    const valPos = plot.valToPos(relSec, 'x');
+    const left = Number.isFinite(valPos) ? valPos : frac * plot.bbox.width;
+    cursor.style.left = `${left}px`;
+  }, []);
 
   // Create the plot once (empty), attach cursor/click/resize behavior.
   useEffect(() => {
@@ -52,11 +89,10 @@ const TelemetryPanel: React.FC = () => {
       width: container.clientWidth,
       height: container.clientHeight || 260,
       padding: [12, 10, 8, 8],
-      legend: { show: true },
+      legend: { show: false },
       scales: {
         x: { time: false },
         y: { auto: true },
-        y2: { auto: true },
       },
       // left/top/width/height are BBox fields the type requires (unused at runtime).
       select: { show: true, left: 0, top: 0, width: 0, height: 0 },
@@ -68,14 +104,6 @@ const TelemetryPanel: React.FC = () => {
           font: '11px system-ui, sans-serif',
         },
         { stroke: '#8b9aab', grid: { stroke: 'rgba(139,154,171,0.08)' }, ticks: { stroke: '#8b9aab' }, font: '11px system-ui, sans-serif' },
-        {
-          stroke: '#6b7a8a',
-          grid: { show: false },
-          ticks: { stroke: '#6b7a8a' },
-          font: '11px system-ui, sans-serif',
-          side: 1,
-          size: 40,
-        },
       ],
       series: [
         { label: 'time (s)' },
@@ -90,13 +118,6 @@ const TelemetryPanel: React.FC = () => {
           label: 'Acceleration (m/s²)',
           scale: 'y',
           stroke: SERIES_COLORS.acceleration,
-          width: 1.5,
-          points: { show: false },
-        },
-        {
-          label: 'Heading (°)',
-          scale: 'y2',
-          stroke: SERIES_COLORS.heading,
           width: 1.5,
           points: { show: false },
         },
@@ -119,6 +140,16 @@ const TelemetryPanel: React.FC = () => {
             u.over.addEventListener('dblclick', () => {
               (u as unknown as { resetZoom(): void }).resetZoom();
             });
+          },
+        ],
+        draw: [
+          (u) => {
+            // Re-place the cursor on every draw so it stays correct even when
+            // data/scale settle asynchronously after a tab re-mount.
+            const cursor = cursorRef.current;
+            if (cursor) {
+              positionCursor(u, cursor);
+            }
           },
         ],
       },
@@ -149,47 +180,52 @@ const TelemetryPanel: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Data updates when telemetry arrives.
+  // Data updates when telemetry arrives. Also pin the x-axis to the full
+  // recording range so the chart and the timeline cursor stay in sync all the
+  // way to the end of the recording.
   useEffect(() => {
     const plot = plotRef.current;
     if (!plot || !telemetry) {
       return;
     }
     plot.setData(buildData(telemetry));
-  }, [telemetry]);
+    if (timeRange) {
+      const durSec = Number(timeRange.end - timeRange.start) / 1e9;
+      if (Number.isFinite(durSec) && durSec > 0) {
+        plot.setScale('x', { min: 0, max: durSec });
+      }
+    }
+  }, [telemetry, timeRange]);
 
-  // Vertical cursor follows the timeline.
+  // Vertical cursor tracks the timeline during playback/scrubbing. Re-mounts
+  // are additionally covered by the draw hook, which re-places the cursor when
+  // the plot redraws (see positionCursor).
   useEffect(() => {
     const plot = plotRef.current;
     const cursor = cursorRef.current;
-    if (!plot || !cursor || !telemetry || !timeRange) {
-      return;
+    if (plot && cursor) {
+      positionCursor(plot, cursor);
     }
-    const relSec = Number(currentTimestamp - timeRange.start) / 1e9;
-    // uPlot resolves the x scale only on the first draw (RAF), so valToPos may
-    // return NaN right after setData. Compute the position deterministically
-    // from the scale when resolved, otherwise from the data bounds.
-    const xs = plot.data[0];
-    if (xs.length < 2) {
-      return;
-    }
-    const xScale = plot.scales.x;
-    const min = xScale.min != null ? xScale.min : xs[0];
-    const max = xScale.max != null ? xScale.max : xs[xs.length - 1];
-    const span = max - min;
-    if (!Number.isFinite(span) || span <= 0) {
-      return;
-    }
-    const left = ((relSec - min) / span) * plot.bbox.width;
-    cursor.style.left = `${left}px`;
-  }, [currentTimestamp, telemetry, timeRange]);
+  }, [currentTimestamp, timeRange, positionCursor]);
 
-  const hasSeries = telemetry && (telemetry.velocity || telemetry.acceleration || telemetry.pose);
+  const hasSeries = telemetry && (telemetry.velocity || telemetry.acceleration);
+  const legend = buildLegend(telemetry);
 
   return (
     <div className="telemetry-panel">
       <div className="telemetry-header">
         <span className="telemetry-title">Telemetry</span>
+        {legend.length > 0 && (
+          <div className="telemetry-legend">
+            {legend.map((entry) => (
+              <span key={entry.label} className="telemetry-legend-item">
+                <span className="telemetry-legend-swatch" style={{ background: entry.color }} />
+                {entry.label}{' '}
+                <span className="telemetry-legend-unit">({entry.unit})</span>
+              </span>
+            ))}
+          </div>
+        )}
         <span className="telemetry-hint">click: seek · drag: zoom · double-click: reset</span>
       </div>
       {hasSeries ? (

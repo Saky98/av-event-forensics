@@ -26,6 +26,35 @@
   font-size: 13px;
 }
 
+.telemetry-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-left: 4px;
+}
+
+.telemetry-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #c9d4e0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.telemetry-legend-swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.telemetry-legend-unit {
+  color: #6b7a8a;
+  font-size: 11px;
+}
+
 .telemetry-hint {
   margin-left: auto;
   color: #6b7a8a;
