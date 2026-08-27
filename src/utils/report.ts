@@ -152,7 +152,7 @@ export function buildHtmlReport(data: ReportData): string {
         .join('')}</div>`
     : '<p class="muted">no camera frames captured</p>';
   const lidarHtml = data.lidarDataUrl
-    ? `<img class="lidar-img" src="${data.lidarDataUrl}" alt="LiDAR snapshot" />`
+    ? `<figure class="lidar-frame"><figcaption>LiDAR 3D view</figcaption><img class="lidar-img" src="${data.lidarDataUrl}" alt="LiDAR snapshot" /></figure>`
     : '<p class="muted">LiDAR snapshot unavailable</p>';
 
   return `<!DOCTYPE html>
@@ -197,7 +197,9 @@ export function buildHtmlReport(data: ReportData): string {
   .cam { margin: 0; background: #0a0e14; border: 1px solid #1b2633; border-radius: 6px; padding: 6px; }
   .cam img { width: 100%; display: block; border-radius: 4px; }
   .cam figcaption { font-size: 11px; color: #8b9aab; margin-top: 4px; }
-  .lidar-img { width: 100%; border-radius: 6px; border: 1px solid #1b2633; }
+  .lidar-frame { margin: 0; max-width: 720px; }
+  .lidar-frame figcaption { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #8b9aab; margin-bottom: 6px; }
+  .lidar-img { width: 100%; border-radius: 6px; border: 1px solid #2a3b4d; box-shadow: 0 4px 16px rgba(0,0,0,.35); }
   .chain-scroll { max-height: 340px; overflow-y: auto; border: 1px solid #1b2633; border-radius: 6px; }
 </style>
 </head>
