@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { setExpectedHash } from '../../store/appStore';
 import { formatBytes } from '../../utils/mcap';
 import {
   buildChainRecords,
@@ -28,7 +27,6 @@ import './ForensicPanel.css';
  */
 
 const ForensicPanel: React.FC = () => {
-  const dispatch = useDispatch();
   const { fileInfo, fileHash, expectedHash, telemetry, events, integrity } = useSelector(
     (state: RootState) => state.app,
   );
@@ -175,18 +173,19 @@ const ForensicPanel: React.FC = () => {
         </div>
         <div className="forensic-row">
           <span className="forensic-label">Expected hash</span>
-          <input
-            className="forensic-input"
-            type="text"
-            placeholder="paste expected SHA-256 (64 hex chars) or leave empty"
-            value={expectedHash ?? ''}
-            onChange={(e) => dispatch(setExpectedHash(e.target.value.trim() === '' ? null : e.target.value))}
-            spellCheck={false}
-          />
-          {expectedHashValid && integrityStatus !== 'neutral' && (
-            <span className={`forensic-inline ${integrityStatus === 'ok' ? 'ok' : 'bad'}`}>
-              {integrityStatus === 'ok' ? 'hash matches' : 'hash does NOT match'}
-            </span>
+          {expectedHash ? (
+            <>
+              <code className="forensic-hash" title="From the recorded baseline (registry) — read-only">
+                {expectedHash}
+              </code>
+              {expectedHashValid && integrityStatus !== 'neutral' && (
+                <span className={`forensic-inline ${integrityStatus === 'ok' ? 'ok' : 'bad'}`}>
+                  {integrityStatus === 'ok' ? 'hash matches' : 'hash does NOT match'}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="forensic-muted">from baseline (registry)…</span>
           )}
         </div>
         <div className="forensic-row">
@@ -319,6 +318,9 @@ const ForensicPanel: React.FC = () => {
                   : allOk || (tamperedFrame !== null && link.index < tamperedFrame)
                     ? 'ok'
                     : '';
+                // Expected (baseline) hash for this frame vs the currently computed one.
+                const expectedChainHash = integrity?.baselineFrameChain?.[link.index];
+                const hashDiffers = expectedChainHash != null && expectedChainHash !== link.hash;
                 const r = link.record;
                 return (
                   <div
@@ -338,7 +340,16 @@ const ForensicPanel: React.FC = () => {
                     />
                     <span className="forensic-link-frame">{link.index + 1}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
-                    <code className="forensic-link-hash" title={link.hash}>{link.hash}</code>
+                    <div className="forensic-hash-cell">
+                      {hashDiffers && (
+                        <code className="forensic-hash-baseline" title={`expected (baseline): ${expectedChainHash}`}>
+                          {expectedChainHash}
+                        </code>
+                      )}
+                      <code className={`forensic-hash-now ${hashDiffers ? 'bad' : 'ok'}`} title={link.hash}>
+                        {link.hash}
+                      </code>
+                    </div>
                   </div>
                 );
               })}

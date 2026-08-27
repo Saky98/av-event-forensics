@@ -11,6 +11,7 @@ import {
   setCollisionTopic,
   setBrakingTopic,
   setEvents,
+  setExpectedHash,
   setFileHash,
   setFileInfo,
   setFrameStepMs,
@@ -29,7 +30,12 @@ import type { EventData, TelemetryData } from '../types';
 import { useMcapWorker } from './useMcapWorker';
 import { clearMcapSession, loadMcapFile } from '../utils/mcap';
 import { buildChainRecords, computeChain } from '../utils/forensics';
-import { compareIntegrity, saveIntegritySnapshot } from '../utils/integrity';
+import {
+  compareIntegrity,
+  getRegistryEntry,
+  getSnapshot,
+  saveIntegritySnapshot,
+} from '../utils/integrity';
 
 /** Topics that carry compressed images (cameras), by schema name or topic pattern. */
 function isCameraTopic(schemaName: string, topic: string): boolean {
@@ -84,10 +90,33 @@ export function useMcapReader() {
             mismatchChain: false,
             noSnapshot: false,
             snapshotShort: fileHash.slice(0, 8),
+            baselineFrameChain: frameChain,
           }),
         );
+        // Expected hash comes from the just-recorded baseline (not free text).
+        dispatch(setExpectedHash(fileHash));
       } else {
-        dispatch(setIntegrity(comparison));
+        // Load the baseline chain from the stored snapshot (expected hashes).
+        let baselineFrameChain: string[] | undefined;
+        try {
+          const entry = await getRegistryEntry(fileName);
+          if (entry) {
+            const snap = await getSnapshot(entry.snapshotHash);
+            baselineFrameChain = snap?.frameChain;
+          }
+        } catch {
+          baselineFrameChain = undefined;
+        }
+        dispatch(setIntegrity({ ...comparison, baselineFrameChain }));
+        // Expected hash = the recorded baseline file hash.
+        try {
+          const entry = await getRegistryEntry(fileName);
+          if (entry) {
+            dispatch(setExpectedHash(entry.snapshotHash));
+          }
+        } catch {
+          // leave expected hash unchanged
+        }
       }
     },
     [dispatch],

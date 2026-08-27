@@ -41,6 +41,8 @@ export interface IntegrityComparison {
   noSnapshot: boolean;
   /** Short derived snapshot key (first 8 hex chars) when present. */
   snapshotShort?: string;
+  /** Baseline per-frame hashes from the stored snapshot (expected values). */
+  baselineFrameChain?: string[];
 }
 
 const DB_NAME = 'av-forensics-integrity';
