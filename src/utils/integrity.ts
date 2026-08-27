@@ -24,8 +24,10 @@ export interface IntegritySnapshot {
 export interface IntegrityRegistryEntry {
   /** MCAP file name used as the lookup key. */
   fileName: string;
-  /** Key of the stored snapshot (derived from the file hash). */
+  /** First-recorded baseline snapshot key (canonical reference). */
   snapshotHash: string;
+  /** All snapshot hashes ever recorded for this file (avoids overwriting baseline). */
+  snapshotHashes: string[];
 }
 
 export interface IntegrityComparison {
@@ -111,8 +113,21 @@ export async function saveIntegritySnapshot(
   snapshot: IntegritySnapshot,
 ): Promise<IntegrityRegistryEntry> {
   const snapshotHash = snapshot.fileHash;
+  const existing = await getRegistryEntry(fileName);
   await idbPut(SNAPSHOT_STORE, snapshotHash, snapshot);
-  const entry: IntegrityRegistryEntry = { fileName, snapshotHash };
+  // Keep every recorded hash so later opens of a differently-hashed file (e.g.
+  // a compromised copy with the same name) are detected as modified instead of
+  // silently overwriting the baseline.
+  const snapshotHashes = existing
+    ? existing.snapshotHashes.includes(snapshotHash)
+      ? existing.snapshotHashes
+      : [...existing.snapshotHashes, snapshotHash]
+    : [snapshotHash];
+  const entry: IntegrityRegistryEntry = {
+    fileName,
+    snapshotHash: existing?.snapshotHash ?? snapshotHash,
+    snapshotHashes,
+  };
   await idbPut(REGISTRY_STORE, fileName, entry);
   return entry;
 }
@@ -130,18 +145,50 @@ export async function compareIntegrity(
   if (!entry) {
     return { intact: false, mismatchFile: false, mismatchChain: false, noSnapshot: true };
   }
-  const snapshot = await getSnapshot(entry.snapshotHash);
-  if (!snapshot) {
+  const candidates = entry.snapshotHashes && entry.snapshotHashes.length ? entry.snapshotHashes : [entry.snapshotHash];
+  let chainMismatchLikeFile: IntegritySnapshot | undefined;
+  let anySnapshot = false;
+  for (const h of candidates) {
+    const snapshot = await getSnapshot(h);
+    if (!snapshot) {
+      continue;
+    }
+    anySnapshot = true;
+    if (snapshot.fileHash === currentFileHash) {
+      const chainMatches = chainsEqual(snapshot.frameChain, currentFrameChain);
+      if (chainMatches) {
+        return {
+          intact: true,
+          mismatchFile: false,
+          mismatchChain: false,
+          noSnapshot: false,
+          snapshotShort: snapshot.fileHash.slice(0, 8),
+        };
+      }
+      chainMismatchLikeFile = snapshot;
+    }
+  }
+  if (!anySnapshot) {
     return { intact: false, mismatchFile: false, mismatchChain: false, noSnapshot: true };
   }
-  const fileMatches = snapshot.fileHash === currentFileHash;
-  const chainMatches = chainsEqual(snapshot.frameChain, currentFrameChain);
+  // No stored snapshot matches this file hash → the file was modified, OR the
+  // file hash matches a snapshot but its frame chain no longer does.
+  if (chainMismatchLikeFile) {
+    return {
+      intact: false,
+      mismatchFile: false,
+      mismatchChain: true,
+      noSnapshot: false,
+      snapshotShort: chainMismatchLikeFile.fileHash.slice(0, 8),
+    };
+  }
+  const baseline = await getSnapshot(entry.snapshotHash);
   return {
-    intact: fileMatches && chainMatches,
-    mismatchFile: !fileMatches,
-    mismatchChain: fileMatches && !chainMatches,
+    intact: false,
+    mismatchFile: true,
+    mismatchChain: false,
     noSnapshot: false,
-    snapshotShort: snapshot.fileHash.slice(0, 8),
+    snapshotShort: baseline?.fileHash.slice(0, 8),
   };
 }
 
