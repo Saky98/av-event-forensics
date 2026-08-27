@@ -244,15 +244,10 @@ const ForensicPanel: React.FC = () => {
             {verifyMsg && (
               <p className={`forensic-verify-msg ${chainCheck?.intact ? 'ok' : 'bad'}`}>{verifyMsg}</p>
             )}
-            <p className="forensic-hint">
-              <span className="forensic-flag col">col</span> collision ·{' '}
-              <span className="forensic-flag brk">brk</span> sudden braking · any change breaks every following link
-            </p>
             <div className="forensic-chain">
               <div className="forensic-link forensic-link-header">
                 <span className="forensic-link-frame">#</span>
                 <span className="forensic-link-t">time</span>
-                <span className="forensic-link-v">velocity m/s</span>
                 <span className="forensic-link-flags">flags</span>
                 <span className="forensic-link-dot" />
               </div>
@@ -267,9 +262,6 @@ const ForensicPanel: React.FC = () => {
                   >
                     <span className="forensic-link-frame">{link.index}</span>
                     <span className="forensic-link-t">{r.t.toFixed(2)}s</span>
-                    <span className="forensic-link-v">
-                      {Number.isFinite(r.velocity) ? r.velocity.toFixed(1) : '—'}
-                    </span>
                     <span className="forensic-link-flags">
                       {r.collision && (
                         <span className="forensic-flag col" title="collision detected">col</span>

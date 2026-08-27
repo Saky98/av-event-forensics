@@ -206,7 +206,7 @@
 
 .forensic-link {
   display: grid;
-  grid-template-columns: 34px 52px 70px 40px 14px;
+  grid-template-columns: 34px 52px 40px 14px;
   align-items: center;
   gap: 6px;
   padding: 3px 6px;
@@ -286,11 +286,6 @@
 
 .forensic-link-t {
   color: #8b9aab;
-}
-
-.forensic-link-v {
-  color: #c9d4e0;
-  font-variant-numeric: tabular-nums;
 }
 
 .forensic-link-flags {
