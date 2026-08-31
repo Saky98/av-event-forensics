@@ -32,3 +32,9 @@ storage/
 # Python cache
 __pycache__/
 *.pyc
+
+# Project handoff / readme (removed from repo — personal notes)
+HANDOFF.md
+README.md
+HANDOFF.github.md
+README.github.md
