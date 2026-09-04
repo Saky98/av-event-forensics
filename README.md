@@ -68,8 +68,9 @@ records are converted to MCAP (Foxglove FlatBuffer schemas) by the scripts in
 
 ## License & attribution
 
-- The **tool source code** does not yet declare a license — treat as all-rights-reserved
-  until the author pins one.
+- The **tool source code** is released under the **MIT License** — you may use it,
+  modify it, and redistribute it however you like (including commercially), provided
+  you retain the copyright notice.
 - The demo data derives from **DeepAccident**. If you use or redistribute it, please
   check the official DeepAccident repository for its current terms and cite the
   dataset accordingly. Foxglove schemas are used purely as the MCAP wire format.
