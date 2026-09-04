@@ -7,7 +7,9 @@ in the browser (with a Web Worker for the heavy work).
 
 Stack: TypeScript · React · Redux Toolkit · Vite · Three.js (3D) · uPlot (charts).
 
-## Quick start
+## Running
+
+Requires **Node.js 18+**. Start the development server:
 
 ```bash
 git clone https://github.com/Saky98/av-event-forensics.git
@@ -16,8 +18,16 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173/**, then load an `.mcap` from the file manager.
-Production: `npm run build` → `npm run preview`. (Full run guide: [`RUNNING.md`](./RUNNING.md).)
+Open **http://localhost:5173/** and load an `.mcap` from the file manager
+(`storage/Town02_truck_collision.mcap` for the demo, or
+`storage/compromised/Town02_truck_collision.mcap` to see the tamper detection).
+
+For a production build:
+
+```bash
+npm run build
+npm run preview
+```
 
 ## The four tabs
 
