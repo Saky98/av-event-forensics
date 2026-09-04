@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Konvertuje akumulirani PCD u MCAP za Foxglove kao dodatni sloj
+"""Converts an accumulated PCD into an MCAP for Foxglove as an extra layer.
 
-Prilagodjeno za av-event-forensics projekat:
-- ulaz: storage/deepaccident_accumulated.pcd (ili --input)
-- izlaz: storage/deepaccident_accumulated.mcap (ili --output)
+Adapted for the av-event-forensics project:
+- input:  storage/deepaccident_accumulated.pcd (or --input)
+- output: storage/deepaccident_accumulated.mcap (or --output)
 
-Primer:
+Example:
     python3 scripts/python/make_accumulated_mcap.py
 """
 
@@ -15,12 +15,12 @@ from mcap.writer import Writer
 from foxglove_schemas_flatbuffer import get_schema, resources as res
 import flatbuffers
 
-# Root projekta: scripts/python/.. -> root
+# Project root: scripts/python/.. -> root
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_INPUT = os.path.join(PROJECT_ROOT, "storage", "deepaccident_accumulated.pcd")
 DEFAULT_OUTPUT = os.path.join(PROJECT_ROOT, "storage", "deepaccident_accumulated.mcap")
 
-# Ucitaj potrebne foxglove seme (generisani flatbuffer moduli su u pip paketu)
+# Load the required foxglove schemas (the generated flatbuffer modules come from the pip package)
 _FB_PATH = str(res.files('foxglove_schemas_flatbuffer'))
 if _FB_PATH not in sys.path:
     sys.path.insert(0, _FB_PATH)
@@ -97,13 +97,13 @@ def build_pointcloud(builder, points, ts_ns, frame_id="ego_vehicle"):
     return bytes(builder.Output())
 
 
-# Ucitaj akumulirani PCD
+# Load the accumulated PCD
 parser = argparse.ArgumentParser(description="Accumulated PCD -> MCAP (Foxglove)")
-parser.add_argument("--input", default=DEFAULT_INPUT, help="putanja do akumuliranog PCD")
-parser.add_argument("--output", default=DEFAULT_OUTPUT, help="izlazni MCAP")
+parser.add_argument("--input", default=DEFAULT_INPUT, help="path to the accumulated PCD")
+parser.add_argument("--output", default=DEFAULT_OUTPUT, help="output MCAP file")
 args = parser.parse_args()
 
-print("Ucitavam PCD...")
+print("Loading PCD...")
 pcd_path = args.input
 pts = []
 with open(pcd_path) as f:
@@ -122,9 +122,9 @@ for l in lines[data_start:]:
         pts.append([float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])])
 
 points = np.array(pts, dtype=np.float64)
-print(f"Ucitano {points.shape[0]:,} tacaka")
+print(f"Loaded {points.shape[0]:,} points")
 
-# Kreiramo MCAP
+# Create the MCAP
 out_path = args.output
 writer = Writer(output=out_path)
 writer.start()
@@ -142,10 +142,10 @@ channel_id = writer.register_channel(
 builder = flatbuffers.Builder(20_000_000)
 ts_ns = 1700000000 * 1_000_000_000
 
-print("Gradim FlatBuffer...")
+print("Building FlatBuffer...")
 pc_data = build_pointcloud(builder, points, ts_ns, "ego_vehicle")
 
-print("Upisujem u MCAP...")
+print("Writing to MCAP...")
 writer.add_message(
     channel_id=channel_id, log_time=ts_ns,
     data=pc_data, publish_time=ts_ns,
@@ -153,7 +153,7 @@ writer.add_message(
 
 writer.finish()
 mb = os.path.getsize(out_path) / 1024 / 1024
-print(f"✅ MCAP kreiran: {out_path} ({mb:.1f} MB)")
+print(f"✅ MCAP written: {out_path} ({mb:.1f} MB)")
 print(f"   Topic: /lidar/accumulated_points")
 print(f"   Frame: ego_vehicle")
-print(f"   Tacaka: {points.shape[0]:,}")
+print(f"   Points: {points.shape[0]:,}")

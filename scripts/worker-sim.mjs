@@ -1,4 +1,4 @@
-// Simulacija tačne worker readImage logike (data path) na realnom fajlu.
+// Simulation of the exact worker readImage logic (data path) on a real file.
 import fs from 'node:fs';
 import { McapIndexedReader } from '@mcap/core';
 import { BlobReadable } from '@mcap/browser';
@@ -27,7 +27,7 @@ const st = reader.statistics;
 const TOPICS = [...reader.channelsById.values()].map(c=>c.topic).filter(t=>t.includes('/image/compressed'));
 console.log('start:', st.messageStartTime.toString());
 
-// rawCache po topiku (kao u workeru)
+// rawCache per topic (same as in the worker)
 const rawCache = new Map();
 async function getTopicMessages(topic){
   if (rawCache.has(topic)) return rawCache.get(topic);
@@ -36,7 +36,7 @@ async function getTopicMessages(topic){
   rawCache.set(topic,msgs); return msgs;
 }
 
-// simulacija play-a: prvi frejm, pa 5 tick-ova
+// playback simulation: first frame, then 5 ticks forward
 const sims = [st.messageStartTime, st.messageStartTime+1n*100000000n, st.messageStartTime+2n*100000000n, st.messageStartTime+10n*100000000n];
 for (const t of sims) {
   const res = [];

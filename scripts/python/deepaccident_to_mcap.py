@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║           deepaccident_to_mcap.py — Konvertor DeepAccident → MCAP          ║
-║               Za potrebe Projekta 1: Forenzička analiza AV                ║
+║                      deepaccident_to_mcap.py — MCAP converter                ║
+║                         DeepAccident dataset → Foxglove MCAP                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Konvertuje DeepAccident Mini dataset u MCAP format sa Foxglove FlatBuffer
-schemama za direktnu vizuelizaciju u Foxglove Studio.
+Converts a DeepAccident Mini dataset into the MCAP format using Foxglove
+FlatBuffer schemas for direct visualization in Foxglove Studio.
 
-Primer:
+Example:
     python3 deepaccident_to_mcap.py --list
     python3 deepaccident_to_mcap.py --scenario type1_subtype1_accident \\
         --town Town03_type001_subtype0001_scenario00024 \\
-        --output izlaz.mcap
+        --output output.mcap
 """
 
 import os
@@ -30,7 +30,7 @@ import flatbuffers
 from mcap.writer import Writer
 from foxglove_schemas_flatbuffer import get_schema, resources as res
 
-# Ucitaj FlatBuffers generisane klase
+# Load the FlatBuffers generated classes
 _FB_PATH = str(res.files('foxglove_schemas_flatbuffer'))
 if _FB_PATH not in sys.path:
     sys.path.insert(0, _FB_PATH)
@@ -48,18 +48,18 @@ import SceneEntity as _SE_mod
 import CubePrimitive as _CP_mod
 import Color as _Color_mod
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PUTANJE (prilagodjeno za av-event-forensics)
-# ═════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# PATHS (adapted for av-event-forensics)
+# ══════════════════════════════════════════════════════════════
 
-# Root projekta: scripts/python/deepaccident_to_mcap.py -> .. -> .. -> root
+# Project root: scripts/python/deepaccident_to_mcap.py -> .. -> .. -> root
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_DATASET = os.path.join(PROJECT_ROOT, "storage", "DeepAccident_mini")
 DEFAULT_OUTPUT = os.path.join(PROJECT_ROOT, "storage", "output.mcap")
 
-# ═════════════════════════════════════════════════════════════════════════════
-# KONSTANTE
-# ═════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# CONSTANTS
+# ══════════════════════════════════════════════════════════════
 
 FPS = 10
 DT = 1.0 / FPS
@@ -90,9 +90,9 @@ ANNOTATIONS_TOPIC = "/annotations/objects"
 BACKGROUND_MAP_TOPIC = "/lidar/background_map"
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# PARSIRANJE
-# ═════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# PARSING
+# ══════════════════════════════════════════════════════════════
 
 def parse_label_file(filepath):
     result = {"ego_x": 0.0, "ego_y": 0.0, "heading": 0.0,
@@ -146,9 +146,9 @@ def parse_meta_file(filepath):
     return result
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# DETEKCIJA NAGLOG KOCENJA
-# ═════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# SUDDEN BRAKING DETECTION
+# ══════════════════════════════════════════════════════════════
 
 def detect_sudden_braking(ego_positions, threshold=BRAKING_THRESHOLD_MS2):
     results = []
@@ -176,9 +176,10 @@ def detect_sudden_braking(ego_positions, threshold=BRAKING_THRESHOLD_MS2):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def build_compressed_image(builder, jpeg_bytes, ts_ns, frame_id="ego_vehicle"):
-    """Gradi FlatBuffer za foxglove_msgs/CompressedImage.
-    Paznja: FlatBuffers zahteva da se structovi (Time) kreiraju
-    neposredno pre PrependStructSlot poziva, inline.
+    """Builds a FlatBuffer for foxglove_msgs/CompressedImage.
+
+    Note: FlatBuffers requires structs (e.g. Time) to be built inline right
+    before the corresponding PrependStructSlot call.
     """
     sec = ts_ns // 1_000_000_000
     nsec = ts_ns % 1_000_000_000
@@ -189,7 +190,7 @@ def build_compressed_image(builder, jpeg_bytes, ts_ns, frame_id="ego_vehicle"):
     _CI_mod.CompressedImageAddFrameId(builder, fb_frame)
     _CI_mod.CompressedImageAddFormat(builder, fb_fmt)
     _CI_mod.CompressedImageAddData(builder, fb_data)
-    # Struct se dodaje posle ostalih polja, inline
+    # Struct is added after the other fields, inline
     _CI_mod.CompressedImageAddTimestamp(
         builder, _Time_mod.CreateTime(builder, sec, nsec))
     img = _CI_mod.CompressedImageEnd(builder)
@@ -198,7 +199,7 @@ def build_compressed_image(builder, jpeg_bytes, ts_ns, frame_id="ego_vehicle"):
 
 
 def build_pointcloud(builder, points, ts_ns, frame_id="ego_vehicle"):
-    """Gradi FlatBuffer za foxglove_msgs/PointCloud.
+    """Builds a FlatBuffer for foxglove_msgs/PointCloud.
     points: numpy array (N, 4) = [x, y, z, intensity]
     """
     N = points.shape[0]
@@ -206,7 +207,7 @@ def build_pointcloud(builder, points, ts_ns, frame_id="ego_vehicle"):
     nsec = ts_ns % 1_000_000_000
     fb_frame = builder.CreateString(frame_id)
 
-    # Pravljenje PackedElementField polja
+    # Building the PackedElementField entries
     def _make_field(b, name, offset, typ):
         name_off = b.CreateString(name)
         _PEF_mod.PackedElementFieldStart(b)
@@ -252,7 +253,7 @@ def build_pointcloud(builder, points, ts_ns, frame_id="ego_vehicle"):
     pc_pose = _Pose_mod.PoseEnd(builder)
 
     _PC_mod.PointCloudStart(builder)
-    # Struct se dodaje inline
+    # Struct is added inline
     _PC_mod.PointCloudAddTimestamp(
         builder, _Time_mod.CreateTime(builder, sec, nsec))
     _PC_mod.PointCloudAddFrameId(builder, fb_frame)
@@ -266,7 +267,7 @@ def build_pointcloud(builder, points, ts_ns, frame_id="ego_vehicle"):
 
 
 def build_pose(builder, x, y, z, yaw, ts_ns):
-    """Gradi FlatBuffer za foxglove_msgs/Pose."""
+    """Builds a FlatBuffer for foxglove_msgs/Pose."""
     qz = math.sin(yaw * 0.5)
     qw = math.cos(yaw * 0.5)
     def _p3(x, y, z):
@@ -290,19 +291,19 @@ def build_pose(builder, x, y, z, yaw, ts_ns):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# BUILD SCENE UPDATE (3D bounding box anotacije za Foxglove)
+# BUILD SCENE UPDATE (3D bounding-box annotations for Foxglove)
 # ═════════════════════════════════════════════════════════════════════════════
 
 def build_cube_primitive(builder, obj, color_r, color_g, color_b):
-    """Gradi CubePrimitive FlatBuffer za jedan objekat."""
-    # Pozicija
+    """Builds a CubePrimitive FlatBuffer for a single object."""
+    # Position
     _P3_mod.Point3Start(builder)
     _P3_mod.Point3AddX(builder, obj["x"])
     _P3_mod.Point3AddY(builder, obj["y"])
     _P3_mod.Point3AddZ(builder, obj["z"])
     pos = _P3_mod.Point3End(builder)
     
-    # Orijentacija (samo yaw)
+    # Orientation (yaw only)
     qz = math.sin(obj["yaw"] * 0.5)
     qw = math.cos(obj["yaw"] * 0.5)
     _Q_mod.QuaternionStart(builder)
@@ -342,27 +343,27 @@ def build_cube_primitive(builder, obj, color_r, color_g, color_b):
 
 
 def build_scene_update(builder, objects, frame_id="ego_vehicle"):
-    """Gradi SceneUpdate FlatBuffer sa bounding boxevima za sve detektovane objekte."""
+    """Builds a SceneUpdate FlatBuffer with bounding boxes for all detected objects."""
     if not objects:
         return None
     
-    # Pravimo jedan SceneEntity sa svim kockama
+    # Build a single SceneEntity holding all the cubes
     cubes = []
     for obj in objects:
-        # Boja prema tipu i collision statusu
+        # Color based on type and collision status
         if obj["collision"]:
-            r, g, b = 1.0, 0.2, 0.2  # crvena za koliziju
+            r, g, b = 1.0, 0.2, 0.2  # red for collision
         elif obj["type"] == "truck":
-            r, g, b = 1.0, 0.6, 0.0  # narandzasta za kamion
+            r, g, b = 1.0, 0.6, 0.0  # orange for the truck
         elif obj["type"] == "pedestrian":
-            r, g, b = 1.0, 1.0, 0.0  # zuta za pesaka
+            r, g, b = 1.0, 1.0, 0.0  # yellow for pedestrians
         else:
-            r, g, b = 0.2, 0.5, 1.0  # plava za ostala vozila
+            r, g, b = 0.2, 0.5, 1.0  # blue for other vehicles
         
         cube = build_cube_primitive(builder, obj, r, g, b)
         cubes.append(cube)
     
-    # Prepend cubes (FlatBuffers gradi unazad)
+    # Prepend cubes (FlatBuffers builds them in reverse)
     _SE_mod.SceneEntityStartCubesVector(builder, len(cubes))
     for c in reversed(cubes):
         builder.PrependUOffsetTRelative(c)
@@ -381,7 +382,7 @@ def build_scene_update(builder, objects, frame_id="ego_vehicle"):
     _SE_mod.SceneEntityAddCubes(builder, cubes_vec)
     entity = _SE_mod.SceneEntityEnd(builder)
     
-    # SceneUpdate (samo entities, bez deletions)
+    # SceneUpdate (entities only, no deletions)
     _SU_mod.SceneUpdateStartEntitiesVector(builder, 1)
     builder.PrependUOffsetTRelative(entity)
     entities_vec = builder.EndVector()
@@ -394,14 +395,14 @@ def build_scene_update(builder, objects, frame_id="ego_vehicle"):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# GLAVNA MCAP KONVERZIJA
+# MAIN MCAP CONVERSION
 # ═════════════════════════════════════════════════════════════════════════════
 
 def get_timestamp_ns(frame_number, fps=FPS, base_sec=1700000000):
     return int((base_sec + frame_number / fps) * 1e9)
 
 
-# FlatBuffer seme (BFBS) iz foxglove-schemas-flatbuffer paketa
+# FlatBuffer schemas (BFBS) from the foxglove-schemas-flatbuffer package
 FB_SCHEMAS = {
     "foxglove.CompressedImage": get_schema("CompressedImage"),
     "foxglove.PointCloud": get_schema("PointCloud"),
@@ -411,7 +412,7 @@ FB_SCHEMAS = {
 
 
 def register_schemas(writer):
-    """Registruje FlatBuffer seme u MCAP. Vraca dict {name: schema_id}."""
+    """Registers FlatBuffer schemas in the MCAP. Returns dict {name: schema_id}."""
     ids = {}
     for name, fb_data in FB_SCHEMAS.items():
         ids[name] = writer.register_schema(
@@ -423,7 +424,7 @@ def register_schemas(writer):
 
 
 def register_channels(writer, schema_ids):
-    """Registruje topice. Vraca dict {name: channel_id}."""
+    """Registers the channels/topics. Returns dict {name: channel_id}."""
     ch = {}
     for cam_name, topic in CAMERA_TOPICS.items():
         ch[cam_name] = writer.register_channel(
@@ -438,8 +439,8 @@ def register_channels(writer, schema_ids):
         topic=EGO_POSE_TOPIC, message_encoding="flatbuffer",
         schema_id=schema_ids["foxglove.Pose"],
     )
-    # Za brzinu i ubrzanje koristimo FrameTransform ili jednostavne Float64
-    # (nisu deo foxglove flatbuffera, pa ih pisemo kao json)
+    # For velocity and acceleration we keep simple Float64 topics
+    # (not foxglove FlatBuffers, so we write them as JSON)
     ch["velocity"] = writer.register_channel(
         topic=EGO_VELOCITY_TOPIC, message_encoding="json",
         schema_id=writer.register_schema(
@@ -472,7 +473,7 @@ def register_channels(writer, schema_ids):
         topic=ANNOTATIONS_TOPIC, message_encoding="flatbuffer",
         schema_id=schema_ids["foxglove.SceneUpdate"],
     )
-    # Akumulirani oblak u svetskom okviru (n=1, kao "background map")
+    # Accumulated cloud in world frame (n=1, used as the "background map")
     ch["background_map"] = writer.register_channel(
         topic=BACKGROUND_MAP_TOPIC, message_encoding="flatbuffer",
         schema_id=schema_ids["foxglove.PointCloud"],
@@ -480,13 +481,13 @@ def register_channels(writer, schema_ids):
     return ch
 
 
-# Deljeni FlatBuffer builder (alocira memoriju)
+# Shared FlatBuffer builder (allocates memory)
 _builder = flatbuffers.Builder(2_000_000)
 
 
 def accumulate_cloud(acc, points, ego_to_world):
-    """Transformise lidar frejm u svetski okvir preko ego_to_world (4x4)
-    i dodaje ga u akumulirani oblak. Vraca None ako nema tacaka."""
+    """Transforms a lidar frame into the world frame via ego_to_world (4x4)
+    and appends it to the accumulated cloud. Returns None when there are no points."""
     if points is None or len(points) == 0:
         return acc
     pts = np.asarray(points, dtype=np.float32)
@@ -509,29 +510,29 @@ def convert_scenario_to_mcap(
 ):
     global _builder
 
-    print(f"▶ Konvertujem: {scenario_name}")
-    print(f"  Izlaz: {output_path}")
+    print(f"▶ Converting: {scenario_name}")
+    print(f"  Output: {output_path}")
 
     label_dir = os.path.join(scenario_base_path, agent, "label", scenario_name)
     if not os.path.isdir(label_dir):
-        print(f"  ❌ Ne postoji: {label_dir}")
+        print(f"  ❌ Does not exist: {label_dir}")
         return False
 
     label_files = sorted([f for f in os.listdir(label_dir) if f.endswith(".txt")])
     if not label_files:
-        print("  ❌ Nema label fajlova")
+        print("  ❌ No label files found")
         return False
 
     if frame_end is None:
         frame_end = len(label_files)
     total_frames = frame_end - frame_start + 1
-    print(f"  Frejmovi: {frame_start} → {frame_end} ({total_frames})")
+    print(f"  Frames: {frame_start} → {frame_end} ({total_frames})")
 
     meta = parse_meta_file(os.path.join(scenario_base_path, "meta", f"{scenario_name}.txt"))
     if meta["accident"]:
-        print(f'  🚗 Sudar: {meta["collision_type"]}, {meta["collision_speed"]} km/h, {meta["weather"]}')
+        print(f'  🚗 Collision: {meta["collision_type"]}, {meta["collision_speed"]} km/h, {meta["weather"]}')
     else:
-        print("  ✅ Normalna voznja")
+        print("  ✅ Normal driving")
 
     writer = Writer(output=output_path)
     writer.start()
@@ -546,14 +547,14 @@ def convert_scenario_to_mcap(
         frame_str = f"{frame_num:03d}"
         ts_ns = get_timestamp_ns(frame_num)
 
-        # Label
+        # Label data
         label_path = os.path.join(scenario_base_path, agent, "label", scenario_name,
                                   f"{scenario_name}_{frame_str}.txt")
         if not os.path.exists(label_path):
             continue
         label_data = parse_label_file(label_path)
         
-        # STVARNA pozicija u svetu iz calib PKL fajla (ego_to_world matrica)
+        # Real position in the world from the calib PKL file (ego_to_world matrix)
         calib_path = os.path.join(scenario_base_path, agent, "calib", scenario_name,
                                   f"{scenario_name}_{frame_str}.pkl")
         if os.path.exists(calib_path):
@@ -628,39 +629,39 @@ def convert_scenario_to_mcap(
                     data=ann_data, publish_time=ts_ns,
                 )
 
-        # Napredak
+        # Progress
         if (idx + 1) % 10 == 0 or idx == 0 or idx == total_frames - 1:
-            print(f"  📍 Frejm {frame_str}/{frame_end:03d} ({idx+1}/{total_frames})", end="\r")
+            print(f"  📍 Frame {frame_str}/{frame_end:03d} ({idx+1}/{total_frames})", end="\r")
 
     print()
 
-    # === AKUMULIRANI OBLACI: svih lidar frejmova u svetskom okviru ===
+    # === ACCUMULATED CLOUD: all lidar frames in the world frame ===
     if accumulate and acc_points is not None and len(acc_points) > 0:
         ts_map = acc_ts if acc_ts is not None else get_timestamp_ns(frame_start)
-        print(f"  🗺️ Akumulirani oblak: {len(acc_points):,} tacaka -> {BACKGROUND_MAP_TOPIC}")
+        print(f"  🗺️ Accumulated cloud: {len(acc_points):,} points -> {BACKGROUND_MAP_TOPIC}")
         _builder.Clear()
         map_data = build_pointcloud(_builder, acc_points, ts_map, "map")
         writer.add_message(
             channel_id=channels["background_map"], log_time=ts_map,
             data=map_data, publish_time=ts_map,
         )
-        del acc_points  # oslobodi memoriju
+        del acc_points  # free memory
 
-    # === DETEKCIJA NAGLOG KOCENJA ===
-    print("  🔍 Detekcija naglog kocenja...")
+    # === SUDDEN BRAKING DETECTION ===
+    print("  🔍 Detecting sudden braking...")
     braking_results = detect_sudden_braking(ego_positions)
     braking_frames = [r for r in braking_results if r["is_braking_event"]]
 
     if braking_frames:
-        print(f"  🛑 DETEKTOVANO na {len(braking_frames)} frejma:")
+        print(f"  🛑 DETECTED on {len(braking_frames)} frames:")
         for br in braking_frames[:5]:
-            print(f"     Frejm {br['frame']:03d}: v={br['velocity']:.1f} m/s, a={br['acceleration']:.1f} m/s²")
+            print(f"     Frame {br['frame']:03d}: v={br['velocity']:.1f} m/s, a={br['acceleration']:.1f} m/s²")
         if len(braking_frames) > 5:
             print(f"     ... + {len(braking_frames) - 5}")
     else:
-        print("  ✅ Nema naglog kocenja")
+        print("  ✅ No sudden braking")
 
-    # === DODATO: Upisivanje brzine i ubrzanja za SVAKI frejm ===
+    # === Write velocity and acceleration for EVERY frame ===
     for br in braking_results:
         ts_ns = get_timestamp_ns(br["frame"])
         writer.add_message(
@@ -689,19 +690,19 @@ def convert_scenario_to_mcap(
 
     writer.finish()
     size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"  ✅ MCAP kreiran: {output_path} ({size_mb:.1f} MB)")
+    print(f"  ✅ MCAP written: {output_path} ({size_mb:.1f} MB)")
     return True
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# POMOCNE FUNKCIJE
-# ═════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ══════════════════════════════════════════════════════════════
 
 def list_scenarios(dataset_path="DeepAccident_mini"):
     if not os.path.isdir(dataset_path):
-        print(f"❌ Ne postoji: {dataset_path}")
+        print(f"❌ Does not exist: {dataset_path}")
         return
-    print(f"📂 Scenariji u {dataset_path}:\n")
+    print(f"📂 Scenarios in {dataset_path}:\n")
     for root, dirs, files in os.walk(dataset_path):
         if root.endswith("meta"):
             for f in sorted(files):
@@ -709,10 +710,10 @@ def list_scenarios(dataset_path="DeepAccident_mini"):
                     continue
                 name = f.replace(".txt", "")
                 meta = parse_meta_file(os.path.join(root, f))
-                marker = "🚗 SUDAR" if meta["accident"] else "✅ normal"
+                marker = "🚗 COLLISION" if meta["accident"] else "✅ normal"
                 w = meta["weather"] or "?"
                 s = f'{meta["collision_speed"]} km/h' if meta["accident"] else "-"
-                print(f"  {marker}  {name}\n         Vreme: {w} | Brzina: {s}\n")
+                print(f"  {marker}  {name}\n         Weather: {w} | Speed: {s}\n")
 
 
 def get_frame_range(scenario_base, scenario_name, agent="ego_vehicle"):
@@ -747,7 +748,7 @@ def main():
     p.add_argument("--list", action="store_true")
     p.add_argument("--all-accidents", action="store_true")
     p.add_argument("--no-accumulate", action="store_true",
-                   help="iskljuci akumulirani oblak (/lidar/background_map)")
+                   help="disable the accumulated cloud (/lidar/background_map)")
     args = p.parse_args()
 
     if args.list:
@@ -778,7 +779,7 @@ def main():
 
     if not args.scenario or not args.town:
         p.print_help()
-        print("\n📂 Tipovi:")
+        print("\n📂 Types:")
         for d in sorted(os.listdir(args.dataset)):
             if os.path.isdir(os.path.join(args.dataset, d)):
                 print(f"   • {d}")
@@ -786,7 +787,7 @@ def main():
 
     base = os.path.join(args.dataset, args.scenario)
     if not os.path.isdir(base):
-        print(f"❌ Ne postoji: {base}")
+        print(f"❌ Does not exist: {base}")
         return
 
     mi, ma = get_frame_range(base, args.town, args.agent)
